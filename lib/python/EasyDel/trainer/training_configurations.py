@@ -217,7 +217,7 @@ class TrainArguments(
 
         available_backends = len(jax.devices(backend))
 
-        total_batch_size *= gradient_accumulation_steps
+        # total_batch_size *= gradient_accumulation_steps
 
         array_devices = jnp.ones((available_backends, 1)).reshape(sharding_array)
 

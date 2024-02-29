@@ -131,7 +131,8 @@ from .trainer import (
     create_vision_casual_language_model_train_step as create_vision_casual_language_model_train_step,
     create_vision_casual_language_model_evaluation_step as create_vision_casual_language_model_evaluation_step,
     VisionCausalLanguageModelTrainer as VisionCausalLanguageModelTrainer,
-    VisionCausalLanguageModelStepOutput as VisionCausalLanguageModelStepOutput
+    VisionCausalLanguageModelStepOutput as VisionCausalLanguageModelStepOutput,
+    CausalLanguageModelPretrainer
 )
 
 from .reinforcement_learning import (
@@ -311,6 +312,8 @@ __all__ = (
     "DPOTrainer",
     "create_concatenated_forward",
     "AutoRLModelForCasualLMWithValueHead",
+
+    "CausalLanguageModelPretrainer",
 
     # SMI Modules
     "smi_run",

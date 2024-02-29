@@ -8,6 +8,10 @@ from .causal_language_model_trainer import (
     CausalLanguageModelTrainer
 )
 
+from .clm_pretrainer import (
+    CausalLanguageModelPretrainer
+)
+
 from .vision_causal_language_model_trainer import (
     VisionCausalLanguageModelStepOutput,
     VisionCausalLanguageModelTrainer,
@@ -24,5 +28,6 @@ __all__ = (
     "VisionCausalLanguageModelStepOutput",
     "VisionCausalLanguageModelTrainer",
     "create_vision_casual_language_model_evaluation_step",
-    "create_vision_casual_language_model_train_step"
+    "create_vision_casual_language_model_train_step",
+    "CausalLanguageModelPretrainer"
 )
