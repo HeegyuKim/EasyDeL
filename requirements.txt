@@ -1,8 +1,9 @@
 chex~=0.1.84
 typing~=3.7.4.3
-jax>=0.4.20
+jax[tpu]>=0.4.20
 jaxlib>=0.4.20
-flax~=0.7.5
+-f https://storage.googleapis.com/jax-releases/libtpu_releases.html
+flax
 fjformer>=0.0.32
 transformers>=4.34.0
 einops~=0.6.1
@@ -22,3 +23,5 @@ numpy~=1.26.2
 uvicorn~=0.23.2
 fastapi~=0.104.1
 pydantic-core==2.14.6
+gcsfs==2023.10.0
+fire
