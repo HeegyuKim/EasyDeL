@@ -24,7 +24,7 @@ fi
 
 
 
-python pretrain_kollama_poc.py \
+python pretrain_kollama.py \
     --size "$size" \
     --batch_size $batch_size \
     --lr $lr \
