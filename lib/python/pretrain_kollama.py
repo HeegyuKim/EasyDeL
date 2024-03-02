@@ -16,14 +16,14 @@ from flax.core import FrozenDict, unfreeze
 from transformers import AutoTokenizer
 from jax import numpy as jnp
 import jax
-from transformers import GemmaForCausalLM as ModuleTorch
+from transformers import LlamaForCausalLM as ModuleTorch
 import fire
 
 
 
-def main(size: str, lr: float, batch_size: int):
+def main(size: str, lr: float, batch_size: int, save_dir: str):
     run_name = f"ko-llama-pretrain-{size}"
-    dataset_dir = "/data-plm/gemma-adapt/train/"
+    dataset_dir = "gs://llm-alignment/data-plm/gemma-adapt/gemma-adapt/train"
     pretrained_model_name_or_path = f"heegyu/ko-llama-{size}-random"
     push2hub = f"heegyu/ko-llama-{size}-test"
 
@@ -31,15 +31,16 @@ def main(size: str, lr: float, batch_size: int):
     max_length = 2048
     # batch_size = 1
     total_batch_size = batch_total_tokens // max_length
-
-    # pretrained_model_name_or_path = "google/gemma-2b-it"
+    # save every 10B tokens
+    # save_steps = 10 * 1024 ** 3 // max_length // batch_size
+    save_steps = 100
 
     model, params = AutoEasyDelModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path,
         device=jax.devices('cpu')[0],
         input_shape=(1, 1),
         device_map="auto",
-        sharding_axis_dims=(1, 1, 1, -1)
+        sharding_axis_dims=(-1, 1, 1, 1)
     )
 
     config = model.config
@@ -70,8 +71,13 @@ def main(size: str, lr: float, batch_size: int):
     if tokenizer.pad_token == None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    storage_options = {}
+    if dataset_dir.startswith("gs:"):
+        storage_options = {"project": "gpt-tpu-370700"}
+
     dataset = load_from_disk(
-        dataset_dir
+        dataset_dir,
+        storage_options=storage_options
     )
 
     item = dataset[0]
@@ -97,17 +103,20 @@ def main(size: str, lr: float, batch_size: int):
         gradient_accumulation_steps=total_batch_size // batch_size,
         max_sequence_length=max_length,
         gradient_checkpointing=EasyDelGradientCheckPointers.NOTHING_SAVEABLE,
-        sharding_array=(1, -1, 1, 1),
+        sharding_array=(-1, 1, 1, 1),
         use_pjit_attention_force=False,
 
         init_input_shape=(1, max_length),
+        save_dir=save_dir,
+        save_steps=save_steps,
 
         dtype=dtype,
         param_dtype=dtype,
 
         step_start_point=0,
 
-        wandb_entity=None
+        wandb_entity=None,
+        loss_remat=''
     )
 
     trainer = CausalLanguageModelPretrainer(
@@ -115,8 +124,6 @@ def main(size: str, lr: float, batch_size: int):
         dataset,
         checkpoint_path=None
     )
-
-    model_parameters = model_parameters if not use_lora else None
 
     output = trainer.train(
         model_parameters=model_parameters,
@@ -135,8 +142,8 @@ def main(size: str, lr: float, batch_size: int):
         )
 
     # model = model.half()
-    model.push_to_hub(push2hub)
-    tokenizer.push_to_hub(push2hub)
+    # model.push_to_hub(push2hub)
+    # tokenizer.push_to_hub(push2hub)
 
 
 if __name__ == "__main__":
