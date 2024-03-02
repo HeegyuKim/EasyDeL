@@ -20,10 +20,24 @@ from transformers import LlamaForCausalLM as ModuleTorch
 import fire
 
 
+SHARDING_AXIES = {
+    "dp": (-1, 1, 1, 1),
+    "fsdp": (1, -1, 1, 1),
+    "mp": (1, 1, 1, -1)
+}
 
-def main(size: str, lr: float, batch_size: int, save_dir: str):
+
+def main(size: str, 
+         lr: float, 
+         batch_size: int, 
+         save_dir: str, 
+         sharding: str = "dp", 
+         epoch: int = 1, 
+         save_tokens_in_billion: float=5
+         ):
+    sharding_axis_dims = SHARDING_AXIES[sharding]
     run_name = f"ko-llama-pretrain-{size}"
-    dataset_dir = "gs://llm-alignment/data-plm/gemma-adapt/gemma-adapt/train"
+    dataset_dir = "gs://heegyu-kogpt/data-plm/ko-tiny-llama-poc/train"
     pretrained_model_name_or_path = f"heegyu/ko-llama-{size}-random"
     push2hub = f"heegyu/ko-llama-{size}-test"
 
@@ -32,15 +46,15 @@ def main(size: str, lr: float, batch_size: int, save_dir: str):
     # batch_size = 1
     total_batch_size = batch_total_tokens // max_length
     # save every 10B tokens
-    # save_steps = 10 * 1024 ** 3 // max_length // batch_size
-    save_steps = 100
+    # save_steps = int(save_tokens_in_billion * 1024 ** 3 // max_length // batch_size)
+    # print(f"save every {save_steps} steps")
 
     model, params = AutoEasyDelModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path,
         device=jax.devices('cpu')[0],
         input_shape=(1, 1),
         device_map="auto",
-        sharding_axis_dims=(-1, 1, 1, 1)
+        sharding_axis_dims=sharding_axis_dims
     )
 
     config = model.config
@@ -80,6 +94,10 @@ def main(size: str, lr: float, batch_size: int, save_dir: str):
         storage_options=storage_options
     )
 
+    total_tokens = len(dataset) * max_length
+    save_steps = int(total_tokens // max_length // batch_size)
+    print(f"save every {save_steps} steps")
+
     item = dataset[0]
     for k, v in item.items():
         print(k, len(v))
@@ -92,7 +110,7 @@ def main(size: str, lr: float, batch_size: int, save_dir: str):
 
         model_name=run_name,
 
-        num_train_epochs=4,
+        num_train_epochs=epoch,
         learning_rate=lr, # 5e-5,
         learning_rate_end=0.1 * lr,
         warmup_steps=1000,
@@ -103,7 +121,7 @@ def main(size: str, lr: float, batch_size: int, save_dir: str):
         gradient_accumulation_steps=total_batch_size // batch_size,
         max_sequence_length=max_length,
         gradient_checkpointing=EasyDelGradientCheckPointers.NOTHING_SAVEABLE,
-        sharding_array=(-1, 1, 1, 1),
+        sharding_array=sharding_axis_dims,
         use_pjit_attention_force=False,
 
         init_input_shape=(1, max_length),
