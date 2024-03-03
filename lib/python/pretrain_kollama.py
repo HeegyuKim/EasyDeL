@@ -19,6 +19,21 @@ import jax
 from transformers import LlamaForCausalLM as ModuleTorch
 import fire
 
+import gcsfs
+from datasets import load_dataset, Dataset, IterableDataset
+
+
+def iter_gcs_files(dirname):
+    fs = gcsfs.GCSFileSystem(project='gpt-tpu-370700')
+    files = fs.ls(dirname)
+    files = [f"gs://{f}" for f in files if f.endswith('.arrow')]
+    print(f"{len(files)} files found")
+
+    for file in files:
+        with fs.open(file) as f:
+            ds = Dataset.from_buffer(f.read())
+            yield from ds
+
 
 SHARDING_AXIES = {
     "dp": (-1, 1, 1, 1),
@@ -32,8 +47,8 @@ def main(size: str,
          batch_size: int, 
          save_dir: str, 
          sharding: str = "dp", 
-         epoch: int = 1, 
-         save_tokens_in_billion: float=5
+         save_tokens_in_billion: float=5,
+         total_train_tokens_in_billion: float = 50,
          ):
     sharding_axis_dims = SHARDING_AXIES[sharding]
     run_name = f"ko-llama-pretrain-{size}"
@@ -47,7 +62,8 @@ def main(size: str,
     total_batch_size = batch_total_tokens // max_length
     # save every 10B tokens
     save_steps = int(save_tokens_in_billion * 1024 ** 3 // max_length // batch_size)
-    print(f"save every {save_steps} steps")
+    max_training_steps = int(total_train_tokens_in_billion * 1024 ** 3 // max_length // batch_size)
+    print(f"save every {save_steps} steps ({save_tokens_in_billion}B tokens)")
 
     model, params = AutoEasyDelModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path,
@@ -85,18 +101,11 @@ def main(size: str,
     if tokenizer.pad_token == None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    storage_options = {}
-    if dataset_dir.startswith("gs:"):
-        storage_options = {"project": "gpt-tpu-370700"}
+    dataset = IterableDataset.from_generator(
+        iter_gcs_files,
+        gen_kwargs={"dirname": dataset_dir},
+        )
 
-    dataset = load_from_disk(
-        dataset_dir,
-        storage_options=storage_options
-    )
-
-    item = dataset[0]
-    for k, v in item.items():
-        print(k, len(v))
 
     train_args = TrainArguments(
 
@@ -105,8 +114,8 @@ def main(size: str,
         custom_rule=config.get_partition_rules(True),
 
         model_name=run_name,
-
-        num_train_epochs=epoch,
+        num_train_epochs=100,
+        max_training_steps=max_training_steps,
         learning_rate=lr, # 5e-5,
         learning_rate_end=0.1 * lr,
         warmup_steps=1000,

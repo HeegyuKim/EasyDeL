@@ -4,7 +4,7 @@ size="${1:-46M}"
 sharding="dp"
 
 if [ "$size" = "46M" ]; then
-    lr="6e-4"
+    lr="4e-4"
     batch_size=32
 elif [ "$size" = "230M" ]; then
     lr="4e-4"
@@ -29,5 +29,4 @@ python pretrain_kollama.py \
     --batch_size $batch_size \
     --lr $lr \
     --sharding $sharding \
-    --epoch 4 \
     --save_dir ./tiny-kollama-ckpt/$size
