@@ -2,8 +2,7 @@ chex~=0.1.84
 typing~=3.7.4.3
 jax[tpu]>=0.4.20
 jaxlib>=0.4.20
--f https://storage.googleapis.com/jax-releases/libtpu_releases.html
-flax
+flax==0.8.1
 fjformer>=0.0.32
 transformers>=4.34.0
 einops~=0.6.1
