@@ -2,7 +2,7 @@ import os.path
 import pathlib
 import re
 import typing
-from typing import OrderedDict, List, Union, Mapping, Optional, Tuple, Callable, Type
+from typing import OrderedDict, List, Union, Mapping, Optional, Tuple, Callable, Type, Any
 
 import termcolor
 from wandb.apis.public import Run
@@ -57,6 +57,7 @@ class TrainArguments(
             model_huggingface_repo_id: Optional[str] = None,
             total_batch_size: int = 32,
             max_training_steps: Optional[int] = None,
+            max_scheduler_steps: Optional[int] = None,
             optimizer: AVAILABLE_OPTIMIZERS = EasyDelOptimizers.ADAMW,
             scheduler: AVAILABLE_SCHEDULERS = EasyDelSchedulers.NONE,
             learning_rate: Union[int, float] = 5e-5,
@@ -78,6 +79,7 @@ class TrainArguments(
             save_steps: Optional[int] = None,
             save_dir: str = "EasyDel-Checkpoints",
             save_total_limit: Optional[int] = None,
+            save_temp_dir: bool = False,
             use_pjit_attention_force: bool = False,
             dtype: jnp.dtype = jnp.bfloat16,
             param_dtype: jnp.dtype = jnp.bfloat16,
@@ -113,6 +115,9 @@ class TrainArguments(
             state_apply_fn_kwarguments_to_model: Optional[dict] = None,
             remove_unused_columns: bool = True,
             force_batch_and_gradient_accumulation_steps_calculation: bool = False,
+            push_to_hub: bool = False,
+            push_to_hub_id: Optional[str] = None,
+            push_to_hub_hf_pt_model_cls: Optional[Any] = None,
             **kwargs
     ):
         """
@@ -241,6 +246,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
         self.wandb_entity = wandb_entity
         self.total_batch_size = total_batch_size
         self.max_training_steps = max_training_steps
+        self.max_scheduler_steps = max_scheduler_steps
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.extra_optimizer_kwargs = extra_optimizer_kwargs
@@ -260,7 +266,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
         self.train_on_inputs = train_on_inputs
         self.save_steps = save_steps
         self.save_dir = save_dir
-        self.save_total_limit = save_total_limit
+        self.save_temp_dir = save_temp_dir
         self.use_pjit_attention_force = use_pjit_attention_force
         self.dtype = dtype
         self.warmup_steps = warmup_steps
@@ -300,7 +306,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
             warmup_steps=self.warmup_steps,
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             weight_decay=self.weight_decay,
-            steps=self.max_training_steps,
+            steps=max_scheduler_steps or self.max_training_steps,
         )
         self.training_time = self._time_to_seconds(training_time) if training_time is not None else None
         torch.set_default_device("cpu")
@@ -311,6 +317,10 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
         self.state_apply_fn_kwarguments_to_model = (
             state_apply_fn_kwarguments_to_model
         ) if state_apply_fn_kwarguments_to_model is not None else {}
+        self.push_to_hub = push_to_hub
+        self.push_to_hub_id = push_to_hub_id
+        self.push_to_hub_hf_pt_model_cls = push_to_hub_hf_pt_model_cls
+    
         if rapture_config is not None:
             print(
                 termcolor.colored("Warning : ", color="red", force_color=True),
