@@ -2,7 +2,7 @@ size="${1:-2b}"
 datasets=$2
 
 model="google/gemma-$size"
-run_name="gemma-$size-lima"
+run_name="gemma-$size-$3"
 batch_size=1
 
 python finetune.py \
