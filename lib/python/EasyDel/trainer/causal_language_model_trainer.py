@@ -5,6 +5,8 @@ import os
 import sys
 import time
 import typing
+import tempfile
+
 
 import IPython.display
 import termcolor
@@ -15,11 +17,13 @@ from fjformer.func.loss_func import (
     compute_weighted_cross_entropy_and_accuracy,
 )
 import wandb
+from huggingface_hub import HfApi
 
 import jax
 import flax
 from tqdm import tqdm
 from ..utils.utils import prefix_print
+from ..transform import easystate_to_huggingface_model
 from ..smi import initialise_tracking, get_mem, get_capacity_matrix
 from jax.experimental.pjit import pjit
 from jax.sharding import PartitionSpec
@@ -133,21 +137,14 @@ def create_casual_language_model_evaluation_step(partition_spec=PartitionSpec(("
         :return: The loss and accuracy of the model
 
         """
-        batch_eval = with_sharding_constraint(
+        batch = with_sharding_constraint(
             batch_eval, partition_spec
         )
 
         def calculate_loss(params):
-            """
-            The calculate_loss function is used to calculate the loss and accuracy of a model.
-            It takes in a set of parameters, which are then passed into the state.apply_fn function
-            to generate logits for each token in the batch. The cross entropy loss and accuracy are then calculated
-            from these logits.
+            labels = batch.pop("labels")
+            valid = batch.pop("valid_loss")[:, 1:] if "valid_loss" in batch else None
 
-            :param params: Pass the model parameters to the function
-            :return: The loss and the accuracy
-
-            """
             labels = batch_eval.pop("labels")
             logits = state.apply_fn(
                 params=params, **batch_eval, return_dict=True
@@ -468,6 +465,17 @@ class CausalLanguageModelTrainer(BaseTrainer):
             gather_fns: Optional[Any | Mapping[str, Callable] | dict[Callable]],
             milestone: bool = False
     ) -> str:
+
+        if self.model.config.model_type == "gemma":
+            from flax.core import FrozenDict, unfreeze
+            print("Tie lm_head with embedding for gemma")
+            params = {
+                "params": unfreeze(state.params)["params"] | {
+                    "lm_head": {
+                        "kernel": state.params["params"]["model"]["embed_tokens"]["embedding"].T}}
+            }
+            state = state.replace(params=FrozenDict(params))
+        
         step = int(
             jax.device_get(
                 state.step
@@ -491,15 +499,69 @@ class CausalLanguageModelTrainer(BaseTrainer):
         filename = f"{checkpoint_name}_{step}" if milestone else f"{checkpoint_name}"
         filename += ".easy"
         termcolor.cprint(f"Saving Model {filename}.", color="cyan", force_color=True)
-        state.save_state(
-            filename=filename,
-            checkpoint_dir=checkpoint_dir,
-            gather_fns=gather_fns,
-            float_dtype=self.dtype,
-            verbose=self.arguments.verbose,
-            save_optimizer=self.arguments.save_optimizer_state,
-        )
+        
+        if self.arguments.save_temp_dir:
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                checkpoint_path = os.path.join(tmpdirname, filename)
+                state.save_state(
+                    filename=filename,
+                    checkpoint_dir=tmpdirname,
+                    gather_fns=gather_fns,
+                    float_dtype=self.dtype,
+                    verbose=self.arguments.verbose,
+                    save_optimizer=self.arguments.save_optimizer_state,
+                )
+                self._push_to_hub(state, checkpoint_path)
+        else:
+            checkpoint_dir=os.path.join(self.arguments.save_dir, self.arguments.model_name)
+            checkpoint_path = os.path.join(checkpoint_dir, filename)
+
+            state.save_state(
+                filename=filename,
+                checkpoint_dir=checkpoint_dir,
+                gather_fns=gather_fns,
+                float_dtype=self.dtype,
+                verbose=self.arguments.verbose,
+                save_optimizer=self.arguments.save_optimizer_state,
+            )
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                self._push_to_hub(state, checkpoint_path)
+
         return filename
+
+    def _push_to_hub(self, state: EasyDelState, checkpoint_path: str):
+        if not self.arguments.push_to_hub:
+            return
+
+        with jax.default_device(jax.devices("cpu")[0]), \
+            tempfile.TemporaryDirectory() as folder_path:
+            model = easystate_to_huggingface_model(
+                state=EasyDelState.load_state(
+                    checkpoint_path=checkpoint_path,
+                    verbose=True,
+                ),
+                base_huggingface_module=self.arguments.push_to_hub_hf_pt_model_cls,
+                config=self.arguments.configs_to_initialize_model_class["config"]
+            )
+            print("Saving huggingface model to local disk")
+            model.save_pretrained(folder_path)
+            del model
+        
+            repo_id = self.arguments.push_to_hub_id
+            revision_name = f"steps-{state.step}"
+            api = HfApi()
+            if "/" not in repo_id:
+                name = api.whoami()['name']
+                repo_id = f"{name}/{repo_id}"
+
+            print(f"Start uploading to huggingface model hub {repo_id}:{revision_name}")
+            api.create_repo(repo_id, private=True, repo_type="model", exist_ok=True)
+            api.create_branch(repo_id, branch=revision_name)
+            api.upload_folder(
+                repo_id=repo_id,
+                folder_path=folder_path,
+                revision=revision_name,
+            )
 
     def train(
             self,
@@ -592,7 +654,6 @@ class CausalLanguageModelTrainer(BaseTrainer):
                             pbar.update(1)
                             trained_tokens = (
                                     current_step *
-                                    self.arguments.total_batch_size *
                                     self.arguments.max_sequence_length
                             )
                             information_queries = {}

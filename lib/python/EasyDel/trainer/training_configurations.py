@@ -1,3 +1,4 @@
+import os
 import os.path
 import pathlib
 import re
@@ -53,6 +54,7 @@ class TrainArguments(
             self,
             model_name: str,
             num_train_epochs: int,
+            project: Optional[str] = None,
             model_class: Optional[EasyDelFlaxPretrainedModel | Type[EasyDelFlaxPretrainedModel]] = None,
             model_huggingface_repo_id: Optional[str] = None,
             total_batch_size: int = 32,
@@ -103,6 +105,7 @@ class TrainArguments(
             training_time: Optional[str] = None,
             dataloader_num_workers: Optional[int] = 0,
             dataloader_pin_memory: Optional[bool] = False,
+            shuffle_train_dataset: bool = False,
             jax_distributed_config: Optional[dict] = None,
             log_all_workers: bool = False,
             wandb_entity: Optional[str] = None,
@@ -293,6 +296,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
         self.log_all_workers = log_all_workers
         self.dataloader_num_workers = dataloader_num_workers
         self.dataloader_pin_memory = dataloader_pin_memory
+        self.shuffle_train_dataset = shuffle_train_dataset
         self.save_optimizer_state = save_optimizer_state
         self.step_start_point = step_start_point if step_start_point is not None else 0
         self.verbose = verbose
@@ -308,6 +312,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
             weight_decay=self.weight_decay,
             steps=max_scheduler_steps or self.max_training_steps,
         )
+        self.project = project
         self.training_time = self._time_to_seconds(training_time) if training_time is not None else None
         torch.set_default_device("cpu")
         self.merge_lora_rapture_parameters = merge_lora_rapture_parameters
@@ -380,7 +385,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
 
         """
         return wandb.init(
-            project=f"EasyDeL-{self.model_name}",
+            project=self.project or os.environ.get("WANDB_PROJECT") or self.model_name,
             config=self(),
             tags=[
                 "Easy Del",

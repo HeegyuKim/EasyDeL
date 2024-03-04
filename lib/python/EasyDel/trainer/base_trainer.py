@@ -276,6 +276,7 @@ class BaseTrainer:
                 truncation_mode=self.arguments.truncation_mode
             ),
             batch_size=self.arguments.total_batch_size,
+            shuffle=self.arguments.shuffle_train_dataset,
             drop_last=True,
         )
         max_training_steps = self.arguments.num_train_epochs * len(

@@ -306,6 +306,7 @@ class AutoEasyDelModelForCausalLM:
             shard_fns: Optional[Mapping[tuple, Callable] | dict] = None,
             backend: Optional[str] = None,
             config_kwargs: Optional[Mapping[str, Any]] = None,
+            return_hf_model_class: bool = False,
             **kwargs
     ) -> Tuple[EasyDelFlaxPretrainedModel, dict]:
         """
@@ -346,6 +347,8 @@ class AutoEasyDelModelForCausalLM:
 
         logger.debug(f"Downloading model weights from {pretrained_model_name_or_path}")
         model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path, **kwargs)
+        hf_model_class = model.__class__
+
         cfg = cfg.from_pretrained(pretrained_model_name_or_path)
         state_dict = model.state_dict()
         logger.debug(f"adding model basic EasyDeL configurations.")
@@ -403,7 +406,10 @@ class AutoEasyDelModelForCausalLM:
             logger.info("converted parameters are flatten making them unflatten ")
             params = unflatten_dict(params)
 
-        return ed_model, params
+        if return_hf_model_class:
+            return ed_model, params, hf_model_class
+        else:
+            return ed_model, params
 
 
 class AutoEasyDelConfig:
