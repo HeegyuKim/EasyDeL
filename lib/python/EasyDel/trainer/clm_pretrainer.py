@@ -26,10 +26,13 @@ from fjformer import (
     with_sharding_constraint
 )
 from ..etils.errors import EasyDelTimerError
+from ..transform import easystate_to_huggingface_model
 import chex
 from typing import Any, Optional, Union, Tuple, Callable, Mapping
 from ..etils.easystate import EasyDelState
 from .base_trainer import BaseTrainer, TrainerConfigureFunctionFuncOutput
+import tempfile
+from huggingface_hub import HfApi
 
 
 
@@ -401,19 +404,73 @@ class CausalLanguageModelPretrainer(BaseTrainer):
                 state.step
             )
         )
+        
         checkpoint_name = f"{self.arguments.model_name}-S{step}"
         filename = f"{checkpoint_name}_{step}" if milestone else f"{checkpoint_name}"
         filename += ".easy"
         termcolor.cprint(f"Saving Model {filename}.", color="cyan", force_color=True)
-        state.save_state(
-            filename=filename,
-            checkpoint_dir=os.path.join(self.arguments.save_dir, self.arguments.model_name),
-            gather_fns=gather_fns,
-            float_dtype=self.dtype,
-            verbose=self.arguments.verbose,
-            save_optimizer=self.arguments.save_optimizer_state,
-        )
+        
+        if self.arguments.save_temp_dir:
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                print('created temporary directory', tmpdirname)
+                state.save_state(
+                    filename=filename,
+                    checkpoint_dir=tmpdirname,
+                    gather_fns=gather_fns,
+                    float_dtype=self.dtype,
+                    verbose=self.arguments.verbose,
+                    save_optimizer=self.arguments.save_optimizer_state,
+                )
+                self._push_to_hub(state, tmpdirname, filename)
+        else:
+            checkpoint_dir=os.path.join(self.arguments.save_dir, self.arguments.model_name)
+
+            state.save_state(
+                filename=filename,
+                checkpoint_dir=checkpoint_dir,
+                gather_fns=gather_fns,
+                float_dtype=self.dtype,
+                verbose=self.arguments.verbose,
+                save_optimizer=self.arguments.save_optimizer_state,
+            )
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                self._push_to_hub(state, tmpdirname, filename)
+
         return filename
+
+    def _push_to_hub(self, state: EasyDelState, folder_path: str, filename: str):
+        if not self.arguments.push_to_hub:
+            return
+
+        with jax.default_device(jax.devices("cpu")[0]):
+            checkpoint_path=os.path.join(folder_path, filename)
+            model = easystate_to_huggingface_model(
+                state=EasyDelState.load_state(
+                    checkpoint_path=checkpoint_path,
+                    verbose=True,
+                ),
+                base_huggingface_module=self.arguments.push_to_hub_hf_pt_model_cls,
+                config=self.arguments.configs_to_initialize_model_class["config"]
+            )
+            model.save_pretrained(folder_path)
+            del model
+        
+        repo_id = self.arguments.push_to_hub_id
+        revision_name = f"steps-{state.step}"
+        api = HfApi()
+        if "/" not in repo_id:
+            name = api.whoami()['name']
+            repo_id = f"{name}/{repo_id}"
+
+        print(f"push to hub repo={repo_id} and revision={revision_name}")
+        api.create_repo(repo_id, private=True, repo_type="model", exist_ok=True)
+        api.create_branch(repo_id, branch=revision_name)
+        api.upload_folder(
+            repo_id=repo_id,
+            folder_path=folder_path,
+            revision=revision_name,
+        )
+
 
     def train(
             self,
