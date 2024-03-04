@@ -697,8 +697,7 @@ class CausalLanguageModelTrainer(BaseTrainer):
                             if self.arguments.training_time is not None:
                                 if time.time() - start_time > self.arguments.training_time:
                                     raise EasyDelTimerError("Time Out")
-                        else:
-                            break
+                        
                         if self.arguments.save_steps is not None and current_step % self.arguments.save_steps == 0:
                             if self.rapture is None:
                                 filename = self._save_state(
@@ -717,6 +716,10 @@ class CausalLanguageModelTrainer(BaseTrainer):
                                         "right now. this action will be skipped", color="white", force_color=True
                                     )
                                 )
+                                
+                        if current_step >= self.max_training_steps:
+                            break
+
             except KeyboardInterrupt:
                 termcolor.cprint(
                     "KeyboardInterrupt At training model Will return Current State of the Model with Parameters.",
