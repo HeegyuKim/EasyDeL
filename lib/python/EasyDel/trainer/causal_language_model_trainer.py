@@ -20,6 +20,7 @@ import wandb
 from huggingface_hub import HfApi
 
 import jax
+from jax.experimental.multihost_utils import sync_global_devices
 import flax
 from tqdm import tqdm
 from ..utils.utils import prefix_print
@@ -498,35 +499,57 @@ class CausalLanguageModelTrainer(BaseTrainer):
         checkpoint_name = f"{self.arguments.model_name}-S{step}"
         filename = f"{checkpoint_name}_{step}" if milestone else f"{checkpoint_name}"
         filename += ".easy"
-        termcolor.cprint(f"Saving Model {filename}.", color="cyan", force_color=True)
         
-        if self.arguments.save_temp_dir:
-            with tempfile.TemporaryDirectory() as tmpdirname:
-                checkpoint_path = os.path.join(tmpdirname, filename)
+        if jax.process_index() == 0:
+            if self.model.config.model_type == "gemma":
+                from flax.core import FrozenDict, unfreeze
+                print("Tie lm_head with embedding for gemma")
+                params = {
+                    "params": unfreeze(state.params)["params"] | {
+                        "lm_head": {
+                            "kernel": state.params["params"]["model"]["embed_tokens"]["embedding"].T}}
+                }
+                state = state.replace(params=FrozenDict(params))
+            
+            step = int(
+                jax.device_get(
+                    state.step
+                )
+            ) + self.arguments.step_start_point if self.arguments.step_start_point is not None else int(
+                jax.device_get(
+                    state.step
+                )
+            )
+            termcolor.cprint(f"Saving Model {filename}.", color="cyan", force_color=True)
+            
+            if self.arguments.save_temp_dir:
+                with tempfile.TemporaryDirectory() as tmpdirname:
+                    checkpoint_path = os.path.join(tmpdirname, filename)
+                    state.save_state(
+                        filename=filename,
+                        checkpoint_dir=tmpdirname,
+                        gather_fns=gather_fns,
+                        float_dtype=self.dtype,
+                        verbose=self.arguments.verbose,
+                        save_optimizer=self.arguments.save_optimizer_state,
+                    )
+                    self._push_to_hub(state, checkpoint_path)
+            else:
+                checkpoint_dir=os.path.join(self.arguments.save_dir, self.arguments.model_name)
+                checkpoint_path = os.path.join(checkpoint_dir, filename)
+
                 state.save_state(
                     filename=filename,
-                    checkpoint_dir=tmpdirname,
+                    checkpoint_dir=checkpoint_dir,
                     gather_fns=gather_fns,
                     float_dtype=self.dtype,
                     verbose=self.arguments.verbose,
                     save_optimizer=self.arguments.save_optimizer_state,
                 )
-                self._push_to_hub(state, checkpoint_path)
-        else:
-            checkpoint_dir=os.path.join(self.arguments.save_dir, self.arguments.model_name)
-            checkpoint_path = os.path.join(checkpoint_dir, filename)
+                with tempfile.TemporaryDirectory() as tmpdirname:
+                    self._push_to_hub(state, checkpoint_path)
 
-            state.save_state(
-                filename=filename,
-                checkpoint_dir=checkpoint_dir,
-                gather_fns=gather_fns,
-                float_dtype=self.dtype,
-                verbose=self.arguments.verbose,
-                save_optimizer=self.arguments.save_optimizer_state,
-            )
-            with tempfile.TemporaryDirectory() as tmpdirname:
-                self._push_to_hub(state, checkpoint_path)
-
+        sync_global_devices()
         return filename
 
     def _push_to_hub(self, state: EasyDelState, checkpoint_path: str):

@@ -43,6 +43,7 @@ def main(run_name: str,
          chat_template: Optional[str] = None,
          packing: bool = True,
          streaming: bool = False,
+         distributed: bool = False,
          keep_in_memory: bool = False,
          ):
     sharding_axis_dims = SHARDING_AXIES[sharding]
@@ -132,6 +133,7 @@ def main(run_name: str,
         gradient_checkpointing=EasyDelGradientCheckPointers.NOTHING_SAVEABLE,
         sharding_array=sharding_axis_dims,
         use_pjit_attention_force=False,
+        jax_distributed_config=dict(initialize_jax_distributed=distributed),
 
         init_input_shape=(1, max_length),
         save_temp_dir=True,

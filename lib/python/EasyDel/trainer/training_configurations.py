@@ -269,6 +269,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
         self.do_test = do_test
         self.train_on_inputs = train_on_inputs
         self.save_steps = save_steps
+        self.save_epochs = save_epochs
         self.save_dir = save_dir
         self.save_temp_dir = save_temp_dir
         self.use_pjit_attention_force = use_pjit_attention_force
