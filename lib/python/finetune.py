@@ -19,6 +19,8 @@ from jax import numpy as jnp
 import jax
 import fire
 
+from EasyDel.trainer.utils import JaxDistributedConfig
+
 
 SHARDING_AXIES = {
     "dp": (-1, 1, 1, 1),
@@ -46,6 +48,9 @@ def main(run_name: str,
          distributed: bool = False,
          keep_in_memory: bool = False,
          ):
+    if distributed:
+        JaxDistributedConfig.initialise(dict(initialize_jax_distributed=distributed))
+
     sharding_axis_dims = SHARDING_AXIES[sharding]
     pretrained_model_name_or_path = model_id
     assert total_batch_size % step_batch_size == 0, "total_batch_size must be divisible by step_batch_size"
@@ -74,48 +79,6 @@ def main(run_name: str,
         print("Cannot estimate dataset size in streaming.")
         save_steps = None
         
-
-    train_args = TrainArguments(
-
-        model_class=get_modules_by_type(config.model_type)[1],
-        configs_to_initialize_model_class=configs_to_initialize_model_class,
-        custom_rule=config.get_partition_rules(True),
-
-        model_name=run_name,
-
-        num_train_epochs=epoch,
-        max_training_steps=max_steps,
-
-        learning_rate=lr, # 5e-5,
-        learning_rate_end=0.1 * lr,
-        warmup_steps=0,
-        optimizer=EasyDelOptimizers.ADAMW,
-        scheduler=EasyDelSchedulers.LINEAR,
-        weight_decay=0,
-        total_batch_size=step_batch_size,
-        gradient_accumulation_steps=total_batch_size // step_batch_size,
-        max_sequence_length=max_length,
-        gradient_checkpointing=EasyDelGradientCheckPointers.NOTHING_SAVEABLE,
-        sharding_array=sharding_axis_dims,
-        use_pjit_attention_force=False,
-        jax_distributed_config=dict(initialize_jax_distributed=distributed),
-
-        init_input_shape=(1, max_length),
-        save_temp_dir=True,
-        save_steps=save_steps,
-        save_epochs=save_epochs,
-
-        dtype=dtype,
-        param_dtype=dtype,
-
-        step_start_point=0,
-
-        wandb_entity=None,
-        shuffle_train_dataset=not streaming,
-        push_to_hub=True,
-        push_to_hub_id=push_to_hub_id,
-        push_to_hub_hf_pt_model_cls=hf_model_cls,
-    )
 
     if push_to_hub_id is None:
         push_to_hub_id = "heegyu/" + f"{model_id}-{run_name}".replace("/", "__")
@@ -151,6 +114,47 @@ def main(run_name: str,
 
     if tokenizer.pad_token == None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    train_args = TrainArguments(
+
+        model_class=get_modules_by_type(config.model_type)[1],
+        configs_to_initialize_model_class=configs_to_initialize_model_class,
+        custom_rule=config.get_partition_rules(True),
+
+        model_name=run_name,
+
+        num_train_epochs=epoch,
+        max_training_steps=max_steps,
+
+        learning_rate=lr, # 5e-5,
+        learning_rate_end=0.1 * lr,
+        warmup_steps=0,
+        optimizer=EasyDelOptimizers.ADAMW,
+        scheduler=EasyDelSchedulers.LINEAR,
+        weight_decay=0,
+        total_batch_size=step_batch_size,
+        gradient_accumulation_steps=total_batch_size // step_batch_size,
+        max_sequence_length=max_length,
+        gradient_checkpointing=EasyDelGradientCheckPointers.NOTHING_SAVEABLE,
+        sharding_array=sharding_axis_dims,
+        use_pjit_attention_force=False,
+
+        init_input_shape=(1, max_length),
+        save_temp_dir=True,
+        save_steps=save_steps,
+        save_epochs=save_epochs,
+
+        dtype=dtype,
+        param_dtype=dtype,
+
+        step_start_point=0,
+
+        wandb_entity=None,
+        shuffle_train_dataset=not streaming,
+        push_to_hub=True,
+        push_to_hub_id=push_to_hub_id,
+        push_to_hub_hf_pt_model_cls=hf_model_cls,
+    )
 
     trainer = CausalLanguageModelTrainer(
         train_args,
