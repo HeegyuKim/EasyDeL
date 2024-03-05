@@ -75,41 +75,6 @@ def main(run_name: str,
         save_steps = None
         
 
-    if push_to_hub_id is None:
-        push_to_hub_id = "heegyu/" + f"{model_id}-{run_name}".replace("/", "__")
-
-    model, params, hf_model_cls = AutoEasyDelModelForCausalLM.from_pretrained(
-        pretrained_model_name_or_path,
-        device=jax.devices('cpu')[0],
-        input_shape=(1, 1),
-        device_map="auto",
-        sharding_axis_dims=sharding_axis_dims,
-        return_hf_model_class=True
-    )
-
-    config = model.config
-
-    model_parameters = FrozenDict({"params": params})
-
-    dtype = jnp.bfloat16
-    config.add_basic_configurations(
-        attn_mechanism="normal",
-        block_b=1,
-        block_q=128,
-        block_k=128,
-        block_k_major=128,
-    )
-
-    configs_to_initialize_model_class = {
-        'config': config,
-        'dtype': dtype,
-        'param_dtype': dtype,
-        'input_shape': (1, max_length)
-    }
-
-    if tokenizer.pad_token == None:
-        tokenizer.pad_token = tokenizer.eos_token
-
     train_args = TrainArguments(
 
         model_class=get_modules_by_type(config.model_type)[1],
@@ -151,6 +116,41 @@ def main(run_name: str,
         push_to_hub_id=push_to_hub_id,
         push_to_hub_hf_pt_model_cls=hf_model_cls,
     )
+
+    if push_to_hub_id is None:
+        push_to_hub_id = "heegyu/" + f"{model_id}-{run_name}".replace("/", "__")
+
+    model, params, hf_model_cls = AutoEasyDelModelForCausalLM.from_pretrained(
+        pretrained_model_name_or_path,
+        device=jax.devices('cpu')[0],
+        input_shape=(1, 1),
+        device_map="auto",
+        sharding_axis_dims=sharding_axis_dims,
+        return_hf_model_class=True
+    )
+
+    config = model.config
+
+    model_parameters = FrozenDict({"params": params})
+
+    dtype = jnp.bfloat16
+    config.add_basic_configurations(
+        attn_mechanism="normal",
+        block_b=1,
+        block_q=128,
+        block_k=128,
+        block_k_major=128,
+    )
+
+    configs_to_initialize_model_class = {
+        'config': config,
+        'dtype': dtype,
+        'param_dtype': dtype,
+        'input_shape': (1, max_length)
+    }
+
+    if tokenizer.pad_token == None:
+        tokenizer.pad_token = tokenizer.eos_token
 
     trainer = CausalLanguageModelTrainer(
         train_args,
