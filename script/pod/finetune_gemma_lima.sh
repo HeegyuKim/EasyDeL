@@ -12,6 +12,7 @@ python finetune.py \
     --sharding mp \
     --save_epochs 5 \
     --max_length 1024 \
+    --distributed \
     --step_batch_size $batch_size \
     --total_batch_size 32 \
     --chat_template gemma \
