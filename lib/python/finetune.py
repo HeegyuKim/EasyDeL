@@ -49,7 +49,7 @@ def main(run_name: str,
          keep_in_memory: bool = False,
          ):
     if distributed:
-        JaxDistributedConfig.initialise(dict(initialize_jax_distributed=distributed))
+        JaxDistributedConfig.initialize(dict(initialize_jax_distributed=distributed))
 
     sharding_axis_dims = SHARDING_AXIES[sharding]
     pretrained_model_name_or_path = model_id
