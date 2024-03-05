@@ -2,7 +2,7 @@ from typing import Optional
 from dataclasses import dataclass
 import os 
 
-from datasets import Dataset, DatasetDict, concatenate_datasets
+from datasets import Dataset, DatasetDict, concatenate_datasets, IterableDataset
 from .chat.train_templates import find_template
 
 from .registry import Registry
@@ -22,6 +22,8 @@ class DatasetArguments():
     train_only_response = False
     chat_template: Optional[str] = None
     train_prompt_prefix: Optional[str] = None
+    streaming: bool = False
+    keep_in_memory: bool = False
     packing: bool = False
 
 datasources = Registry("datasource")
@@ -76,12 +78,27 @@ class DatasetLoader:
             "attention_mask": [1] * len(concat_inputs),
             "valid_loss": concat_vals,
         }
+    
+    def encode_item_batch(self, batch):
+        keys = list(batch.keys())
+
+        required_fields = ["input_ids", "attention_mask", "valid_loss"]
+
+        outputs = {k:[] for k in required_fields}
+        batch_size = len(batch[keys[0]])
+
+        for i in range(batch_size):
+            item = {k: v[i] for k, v in batch.items()}
+            output = self.encode_item(item)
+            for k, v in output.items():
+                output[k].append(v)
+
+        return outputs
         
     def prepare_dataset(self, args: DatasetArguments):
-        dd = DatasetDict({
-            "train": self.get_sources(args, args.dataset, "train"),
-        })
-        num_proc = max(1, min(len(dd['train']) // 2000, NUM_PROC))
+        dd = {
+            "train": self.get_sources(args, args.dataset, "train")
+        }
         test_set = self.get_sources(args, args.eval_dataset or args.dataset, "test")
         if test_set is not None:
             dd["test"] = test_set
@@ -90,15 +107,43 @@ class DatasetLoader:
             for k in dd.keys():
                 if dd[k] is not None and len(dd[k]) > args.limit:
                     dd[k] = dd[k].select(range(args.limit))
+        
+        if not args.streaming:
+            num_proc = max(1, min(len(dd['train']) // 2000, NUM_PROC))
+            kwargs = dict()
+            kwargs["num_proc"] = num_proc
+            kwargs["load_from_cache_file"] = False
+            kwargs["keep_in_memory"] = args.keep_in_memory
 
-        dd = dd.map(self.encode_item, load_from_cache_file=False, desc="Encoding", num_proc=num_proc)
-        required_fields = ["input_ids", "attention_mask", "valid_loss"]
+            for k in dd.keys():
+                dd[k] = dd[k].map(
+                    self.encode_item,
+                    **kwargs
+                    )
 
-        if self.args.packing:
-            cols = set(dd["train"].column_names) - set(required_fields)
-            dd["train"] = dd["train"].map(self._pack, load_from_cache_file=False, batched=True, remove_columns=cols, desc="Packing", num_proc=num_proc)
+                if self.args.packing:
+                    required_fields = ["input_ids", "attention_mask", "valid_loss"]
+                    cols = set(dd["train"].column_names) - set(required_fields)
+                    dd[k] = dd[k].map(
+                        self._pack, 
+                        batched=True, 
+                        remove_columns=cols, 
+                        **kwargs
+                        )
+        else:
+            for k in dd.keys():
+                if args.streaming:
+                    dd[k] = IterableDataset.from_generator(
+                        self._pack_iter,
+                        gen_kwargs={"dataset": dd[k]}
+                    )
+                else:
+                    dd[k] = dd[k].with_transform(self.encode_item_batch)
             
-        return dd
+        self.dataset = dd
+        print(dd)
+        self.train_dataset = dd['train']
+        self.test_dataset = dd.get('test')
 
     def _pack(self, items):
         outputs = dict(
@@ -138,6 +183,38 @@ class DatasetLoader:
             outputs.pop("attention_mask")
         
         return outputs
+
+    def _pack_iter(self, dataset):
+        accum_len = 0
+
+        batch_len = self.args.max_length
+        batch_ids, batch_mask, batch_vals = [], [], []
+
+        for item in dataset:
+            item = self.encode_item(item)
+            ids = item['input_ids']
+            mask = item.get('attention_mask')
+            vals = item['valid_loss']
+            accum_len += len(ids)
+
+            batch_ids.extend(ids)
+            if mask is not None:
+                batch_mask.extend(mask)
+            batch_vals.extend(vals)
+
+            while accum_len > batch_len:
+                batch = dict(
+                    input_ids=batch_ids[:batch_len],
+                    valid_loss=batch_vals[1:batch_len + 1]
+                )
+                batch_ids, batch_vals = batch_ids[batch_len:], batch_vals[batch_len:]
+                if mask:
+                    batch["attention_mask"] = batch_mask[:batch_len]
+                    batch_mask = batch_mask[batch_len:]
+
+                accum_len -= batch_len
+
+                yield batch
     
     def get_sources(self, args, names, split):
         names = names.split(",")
@@ -159,11 +236,11 @@ class DatasetLoader:
         else:
             return None
     
-    @property
-    def train_dataset(self):
-        return self.dataset['train']
+    # @property
+    # def train_dataset(self):
+    #     return self.dataset['train']
 
-    @property
-    def test_dataset(self):
-        return self.dataset.get('test')
+    # @property
+    # def test_dataset(self):
+    #     return self.dataset.get('test')
     

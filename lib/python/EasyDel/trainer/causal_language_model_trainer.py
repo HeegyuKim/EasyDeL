@@ -719,6 +719,26 @@ class CausalLanguageModelTrainer(BaseTrainer):
                                 
                         if current_step >= self.max_training_steps:
                             break
+                    
+
+                    if self.arguments.save_epochs is not None and epoch % self.arguments.save_epochs == 0:
+                        if self.rapture is None:
+                            filename = self._save_state(
+                                state=sharded_state,
+                                gather_fns=gather_fns,
+                                milestone=True
+                            )
+                            checkpoint_path = f"{str(self.arguments.get_path())}/{filename}"
+                        else:
+                            print(
+                                termcolor.colored(
+                                    "Info : ", color="red", force_color=True
+                                ),
+                                termcolor.colored(
+                                    "You can not use `save_steps` while using LoRA "
+                                    "right now. this action will be skipped", color="white", force_color=True
+                                )
+                            )
 
             except KeyboardInterrupt:
                 termcolor.cprint(

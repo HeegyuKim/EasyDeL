@@ -35,11 +35,15 @@ def main(run_name: str,
          total_batch_size: int = 128,
          sharding: str = "fsdp", 
          epoch: int = 1,
-         save_epochs: Optional[float] = 1.0,
+         max_steps: Optional[int] = None,
+         save_epochs: Optional[int] = None,
+         save_steps: Optional[int] = None,
          max_length: int = 2048,
          push_to_hub_id: Optional[str] = None,
          chat_template: Optional[str] = None,
-         packing: bool = True
+         packing: bool = True,
+         streaming: bool = False,
+         keep_in_memory: bool = False,
          ):
     sharding_axis_dims = SHARDING_AXIES[sharding]
     pretrained_model_name_or_path = model_id
@@ -55,12 +59,20 @@ def main(run_name: str,
         eval_dataset=None,
         packing=packing,
         max_length=max_length,
+        streaming=streaming,
+        keep_in_memory=keep_in_memory,
         chat_template=chat_template or model_id
     )
     dataset = DatasetLoader(data_args, tokenizer)
-    save_steps = int(len(dataset.train_dataset) // step_batch_size * save_epochs) if save_epochs else None
-    print(f"{len(dataset.train_dataset)} items in dataset, save every {save_steps} steps.")
-    assert len(dataset.train_dataset) > 0, "No items in dataset"
+    if not streaming:
+        save_steps = int(len(dataset.train_dataset) // step_batch_size * save_epochs) if save_epochs else None
+        save_epochs = None
+        print(f"{len(dataset.train_dataset)} items in dataset, save every {save_steps} steps.")
+        assert len(dataset.train_dataset) > 0, "No items in dataset"
+    else:
+        print("Cannot estimate dataset size in streaming.")
+        save_steps = None
+        
 
     if push_to_hub_id is None:
         push_to_hub_id = "heegyu/" + f"{model_id}-{run_name}".replace("/", "__")
@@ -106,6 +118,8 @@ def main(run_name: str,
         model_name=run_name,
 
         num_train_epochs=epoch,
+        max_training_steps=max_steps,
+
         learning_rate=lr, # 5e-5,
         learning_rate_end=0.1 * lr,
         warmup_steps=0,
@@ -122,6 +136,7 @@ def main(run_name: str,
         init_input_shape=(1, max_length),
         save_temp_dir=True,
         save_steps=save_steps,
+        save_epochs=save_epochs,
 
         dtype=dtype,
         param_dtype=dtype,
@@ -129,7 +144,7 @@ def main(run_name: str,
         step_start_point=0,
 
         wandb_entity=None,
-        shuffle_train_dataset=True,
+        shuffle_train_dataset=not streaming,
         push_to_hub=True,
         push_to_hub_id=push_to_hub_id,
         push_to_hub_hf_pt_model_cls=hf_model_cls,

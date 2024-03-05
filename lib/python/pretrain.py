@@ -20,8 +20,8 @@ from transformers import GemmaForCausalLM as ModuleTorch
 
 
 def main(use_lora=False):
-    run_name = "tiny-test"
-    dataset_dir = "/data-plm/gemma-adapt/train/"
+    run_name = "ko-gemma-2b"
+    dataset_dir = "../../data/gemma-adapt/gemma-adapt/train/"
     pretrained_model_name_or_path = "google/gemma-2b"
     push2hub = "heegyu/gemma-2b-ko-test" 
 
@@ -92,8 +92,8 @@ def main(use_lora=False):
 
         model_name=run_name,
 
-        num_train_epochs=4,
-        learning_rate=5e-5,
+        num_train_epochs=1,
+        learning_rate=2e-5,
         learning_rate_end=1e-5,
         warmup_steps=1000,
         optimizer=EasyDelOptimizers.ADAMW,

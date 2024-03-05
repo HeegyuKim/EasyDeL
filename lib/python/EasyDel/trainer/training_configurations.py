@@ -79,6 +79,7 @@ class TrainArguments(
             backend: Optional[str] = None,
             extra_optimizer_kwargs: dict = None,
             save_steps: Optional[int] = None,
+            save_epochs: Optional[int] = None,
             save_dir: str = "EasyDel-Checkpoints",
             save_total_limit: Optional[int] = None,
             save_temp_dir: bool = False,
