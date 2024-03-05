@@ -19,7 +19,17 @@ class OpenMathInstruct(BaseAlpacaDataSource):
         elif split == "test":
             return 1130000
         
+@datasources("CohereForAI/aya_dataset")
+class Aya(BaseAlpacaDataSource):
+    instruction_key = "inputs"
+    output_key = "targets"
+    dataset_path = "CohereForAI/aya_dataset"
+    
 
+    def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
+        ds = load_dataset(self.dataset_path, "default", split=split, streaming=args.streaming)
+        return ds
+    
 @datasources.register("nampdn-ai/tiny-codes")
 class TinyCodes(BaseAlpacaDataSource):
     instruction_key = "prompt"
