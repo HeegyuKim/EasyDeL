@@ -137,7 +137,7 @@ def main(argv):
                 prompt=instruction,
                 history=[]
             )
-
+    print(FLAGS.sharding_axis_dims)
     server = JAXServerC.from_torch_pretrained(
         server_config=server_config,
         pretrained_model_name_or_path=FLAGS.pretrained_model_name_or_path,
@@ -149,7 +149,7 @@ def main(argv):
         sharding_axis_names=("dp", "fsdp", "tp", "sp"),
         input_shape=(1, server_config.max_sequence_length),
         model_config_kwargs=dict(
-            fully_sharded_data_parallel=True,
+            fully_sharded_data_parallel=False,
             attn_mechanism=FLAGS.attn_mechanism,
             scan_mlp_chunk_size=FLAGS.max_compile_tokens,
             use_scan_mlp=FLAGS.use_scan_mlp,

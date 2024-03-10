@@ -253,7 +253,6 @@ class JAXServer(GradioUserInference):
                 input_ids,
                 attention_mask=attention_mask,
                 params=parameters,
-                prng_key=self.rng_generator(),
                 generation_config=GenerationConfig(
                     max_new_tokens=self.server_config.max_compile_tokens,
 
@@ -269,16 +268,17 @@ class JAXServer(GradioUserInference):
 
         @functools.partial(
             pjit,
-            in_shardings=(self.partition_specs, PartitionSpec(), PartitionSpec()),
+            in_shardings=(self.partition_specs, PartitionSpec(), PartitionSpec(), PartitionSpec()),
             out_shardings=(PartitionSpec())
         )
-        def generate(parameters, input_ids, attention_mask):
+        def generate(parameters, rng, input_ids, attention_mask):
             input_ids = with_sharding_constraint(input_ids, self.server_config.generation_ps)
             attention_mask = with_sharding_constraint(attention_mask, self.server_config.generation_ps)
             predict = model.generate(
                 input_ids,
                 attention_mask=attention_mask,
                 params=parameters,
+                prng_key=rng,
                 generation_config=GenerationConfig(
                     max_new_tokens=self.server_config.max_compile_tokens,
 
@@ -341,7 +341,7 @@ class JAXServer(GradioUserInference):
         else:
             with self.mesh:
                 return self.generate_function(
-                    params, input_ids, attention_mask
+                    params, self.rng_generator(), input_ids, attention_mask
                 )
 
     @classmethod
@@ -483,7 +483,8 @@ class JAXServer(GradioUserInference):
             server_config=server_config,
             verbose=verbose,
             do_memory_log=do_memory_log,
-            add_params_field=add_params_field
+            add_params_field=add_params_field,
+            fully_sharded_data_parallel=model_config_kwargs.get("fully_sharded_data_parallel", True)
         )
 
     @classmethod
@@ -496,7 +497,8 @@ class JAXServer(GradioUserInference):
             server_config: JAXServerConfig = None,
             add_params_field: bool = True,
             do_memory_log: bool = False,
-            verbose: bool = True
+            verbose: bool = True,
+            fully_sharded_data_parallel=True,
     ):
         """
         The from_parameters function is used to load a model from the parameters of a pretrained model.
@@ -532,7 +534,7 @@ class JAXServer(GradioUserInference):
             logging.info(
                 "matching partition rules"
             )
-            partition_specs = match_partition_rules(params=params, rules=config_model.get_partition_rules(True))
+            partition_specs = match_partition_rules(params=params, rules=config_model.get_partition_rules(fully_sharded_data_parallel))
             shard_fns, _ = make_shard_and_gather_fns(partition_specs, get_dtype(server.server_config.dtype))
             logging.info(
                 "sharding parameters across all of the chosen backend(tpu/gpu/cpu)s"
