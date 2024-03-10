@@ -1221,3 +1221,122 @@ class FlaxLlamaForSequenceClassificationModule(nn.Module):
 
 class FlaxLlamaForSequenceClassification(FlaxLlamaPreTrainedModel):
     module_class = FlaxLlamaForSequenceClassificationModule
+
+class FlaxLlamaForRewardModelModule(nn.Module):
+    config: LlamaConfig
+    dtype: jnp.dtype = jnp.float32
+    param_dtype: jnp.dtype = jnp.float32
+    precision: Optional[Union[jax.lax.Precision, str]] = None
+
+    def setup(self):
+        """
+        The setup function is called once at the beginning of training.
+        It initializes the model and optimizer, and sets up any other state that needs to be initialized.
+
+        :param self: Access variables that belong to the class
+        :return: A tuple of the model and the classifier
+        """
+        self.model = FlaxLlamaModule(self.config, dtype=self.dtype)
+        self.regression_head = nn.Dense(
+            1,
+            dtype=self.dtype,
+            param_dtype=self.param_dtype,
+            use_bias=False,
+            kernel_init=jax.nn.initializers.normal(
+                stddev=self.config.initializer_range),
+            precision=self.precision,
+        )
+
+    def __call__(
+            self,
+            input_ids: chex.Array,
+            attention_mask: chex.Array = None,
+            position_ids: chex.Array = None,
+            deterministic: bool = True,
+            init_cache: bool = False,
+            output_attentions: bool = False,
+            output_hidden_states: bool = False,
+            return_dict: bool = True,
+            extra_embedding: Optional[Union[jnp.ndarray, None]] = None
+    ):
+        """
+        The __call__ function is the main function of a Flax module.
+        It takes in all the inputs to the model and returns all outputs from it.
+        The __call__ function can be called directly on an instance of a class, or by using parentheses after an instance:
+            &gt;&gt;&gt; my_model = MyModel()  # instantiate your model class
+            &gt;&gt;&gt; output = my_model(input)  # call your model with input data as arguments to __call__
+
+        :param self: Refer to the class instance
+        :param input_ids: chex.Array: Pass the input to the model
+        :param attention_mask: chex.Array: Specify which tokens are masked
+        :param position_ids: chex.Array: Specify the position of each token in the sequence
+        :param deterministic: bool: Control whether the model is run in deterministic or stochastic mode
+        :param init_cache: bool: Initialize the cache for the transformer
+        :param output_attentions: bool: Return the attention weights
+        :param output_hidden_states: bool: Return the hidden states of all layers
+        :param return_dict: bool: Return a dictionary of outputs
+        :param extra_embedding: Optional[Union[jnp.ndarray: Pass in the embedding of a new word
+        :param None]]: Pass the extra embedding to the model
+        :return: A tuple of logits and hidden_states
+
+        """
+        batch_size, seq_length = input_ids.shape
+        if attention_mask is None:
+            attention_mask = jnp.ones_like(input_ids)
+        if position_ids is None:
+            position_ids = jnp.broadcast_to(
+                jnp.clip(jnp.cumsum(attention_mask, axis=-1) - 1, a_min=0),
+                (batch_size, seq_length)
+            )
+        outputs = self.model(
+            input_ids,
+            attention_mask,
+            position_ids,
+            deterministic=deterministic,
+            init_cache=init_cache,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+            extra_embedding=extra_embedding
+        )
+
+        hidden_states = outputs[0]
+
+        hidden_states = outputs[0]
+
+        batch_size, sequence_length = input_ids.shape[:2]
+
+        assert (
+            self.config.pad_token_id is not None or batch_size == 1
+        ), "Cannot handle batch sizes > 1 if no padding token is defined."
+        if self.config.pad_token_id is None:
+            sequence_lengths = -1
+        else:
+            if input_ids is not None:
+                sequence_lengths = (
+                    jnp.equal(input_ids, self.config.pad_token_id)
+                    .astype(jnp.int32)
+                    .argmax(-1)
+                    - 1
+                )
+            else:
+                sequence_lengths = -1
+                print(
+                    f"{self.__class__.__name__} will not detect padding tokens in `inputs_embeds`. Results may be "
+                    "unexpected if using padding tokens in conjunction with `inputs_embeds.`"
+                )
+
+        pooled_logits = prediction[jnp.arange(batch_size), sequence_lengths]
+        prediction = self.regression_head(pooled_logits)
+
+        if return_dict:
+            return FlaxSequenceClassifierOutput(
+                logits=prediction,
+                hidden_states=hidden_states
+            )
+        else:
+            return prediction,
+
+
+class FlaxLlamaForRewardModel(FlaxLlamaPreTrainedModel):
+    module_class = FlaxLlamaForSequenceClassificationModule

@@ -5,7 +5,9 @@ from .modelling_llama_flax import (
     FlaxLlamaForCausalLM,
     FlaxLlamaForCausalLMModule,
     FlaxLlamaModel,
-    FlaxLlamaModule
+    FlaxLlamaModule,
+    FlaxLlamaForRewardModel,
+    FlaxLlamaForRewardModelModule
 )
 
-__all__ = "FlaxLlamaModel", "FlaxLlamaForCausalLM", "FlaxLlamaForSequenceClassification", "LlamaConfig"
+__all__ = "FlaxLlamaModel", "FlaxLlamaForCausalLM", "FlaxLlamaForSequenceClassification", "LlamaConfig", "FlaxLlamaForRewardModel", "FlaxLlamaForRewardModelModule"

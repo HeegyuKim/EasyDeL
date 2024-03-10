@@ -253,6 +253,7 @@ class JAXServer(GradioUserInference):
                 input_ids,
                 attention_mask=attention_mask,
                 params=parameters,
+                prng_key=self.rng_generator(),
                 generation_config=GenerationConfig(
                     max_new_tokens=self.server_config.max_compile_tokens,
 
@@ -923,11 +924,11 @@ class JAXServer(GradioUserInference):
         assert self._funcs_generated, "you have to first add your model and parameters into server before using fire " \
                                       "with using ``configure_generate_functions``"
 
-        def run():
-            uvicorn.run(self.app, host=self.server_config.host, port=self.server_config.port)
+        # def run():
+        uvicorn.run(self.app, host=self.server_config.host, port=self.server_config.port)
 
-        self.process_uvicorn = mp.Process(target=run)
-        self.process_uvicorn.start()
+        # self.process_uvicorn = mp.Process(target=run)
+        # self.process_uvicorn.start()
 
     def end(self):
         """

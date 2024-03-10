@@ -2,11 +2,11 @@ from typing import List, Union
 
 from absl.app import run
 from absl import flags
-from EasyDel import JAXServer, JAXServerConfig
+from lib.python.EasyDel import JAXServer, JAXServerConfig
 import jax
 from fjformer import get_dtype
-from EasyDel.serve.prompters import GemmaPrompter, Llama2Prompter, OpenChatPrompter, ChatMLPrompter, ZephyrPrompter
-from EasyDel.serve.prompters.base_prompter import BasePrompter
+from lib.python.EasyDel.serve.prompters import GemmaPrompter, Llama2Prompter, OpenChatPrompter, Qwen2Prompter
+from lib.python.EasyDel.serve.prompters.base_prompter import BasePrompter
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(
@@ -104,7 +104,9 @@ def main(argv):
         max_sequence_length=FLAGS.max_sequence_length,
         max_compile_tokens=FLAGS.max_compile_tokens,
         max_new_tokens=FLAGS.max_compile_tokens * FLAGS.max_new_tokens_ratio,
-        dtype=FLAGS.dtype
+        dtype=FLAGS.dtype,
+        host="0.0.0.0",
+        port=35020,
     )
     prompters = {
         "gemma": GemmaPrompter(),
@@ -158,12 +160,13 @@ def main(argv):
         )
     )
 
-    server.gradio_inference().launch(
-        server_name="0.0.0.0",
-        server_port=7680,
-        show_api=True,
-        share=FLAGS.share_gradio
-    )
+    # server.gradio_inference().launch(
+    #     server_name="0.0.0.0",
+    #     server_port=7680,
+    #     show_api=True,
+    #     share=FLAGS.share_gradio
+    # )
+    server.fire()
 
 
 if __name__ == "__main__":

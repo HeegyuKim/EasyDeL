@@ -487,39 +487,11 @@ class CausalLanguageModelTrainer(BaseTrainer):
             )
         )
 
-        checkpoint_dir = os.path.join(self.arguments.save_dir, self.arguments.model_name)
-        filename_extension = ".easy"
-        if self.arguments.save_total_limit:
-            checkpoint_files = glob(os.path.join(checkpoint_dir, f"*{filename_extension}"))
-            checkpoint_files.sort(key=os.path.getmtime)
-            for old_checkpoint in checkpoint_files[:-self.arguments.save_total_limit]:
-                os.remove(old_checkpoint)
-                termcolor.cprint(f"Removed old checkpoint: {old_checkpoint}", color="red", force_color=True)
-
         checkpoint_name = f"{self.arguments.model_name}-S{step}"
         filename = f"{checkpoint_name}_{step}" if milestone else f"{checkpoint_name}"
         filename += ".easy"
-        
+    
         if jax.process_index() == 0:
-            if self.model.config.model_type == "gemma":
-                from flax.core import FrozenDict, unfreeze
-                print("Tie lm_head with embedding for gemma")
-                params = {
-                    "params": unfreeze(state.params)["params"] | {
-                        "lm_head": {
-                            "kernel": state.params["params"]["model"]["embed_tokens"]["embedding"].T}}
-                }
-                state = state.replace(params=FrozenDict(params))
-            
-            step = int(
-                jax.device_get(
-                    state.step
-                )
-            ) + self.arguments.step_start_point if self.arguments.step_start_point is not None else int(
-                jax.device_get(
-                    state.step
-                )
-            )
             termcolor.cprint(f"Saving Model {filename}.", color="cyan", force_color=True)
             
             if self.arguments.save_temp_dir:
