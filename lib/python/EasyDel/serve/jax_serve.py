@@ -681,7 +681,8 @@ class JAXServer(GradioUserInference):
         string = self.format_chat(
             prompt=data.prompt,
             system=None,
-            history=data.history
+            history=data.history,
+            response_prefix=data.response_prefix
         )
 
         response, used_tokens = [None] * 2
@@ -706,7 +707,7 @@ class JAXServer(GradioUserInference):
         raise NotImplementedError()
 
     @staticmethod
-    def format_chat(history: List[List[str]], prompt: str, system: Union[str, None]) -> str:
+    def format_chat(history: List[List[str]], prompt: str, system: Union[str, None], response_prefix: Optional[str] = None) -> str:
         """
         Here you will get the system, prompt and history from user, and you can apply your prompting style
         """
@@ -809,7 +810,7 @@ class JAXServer(GradioUserInference):
             string = self.format_chat(
                 history=history,
                 system=system_prompt,
-                prompt=prompt
+                prompt=prompt,
             )
         elif mode.lower() == "instruct":
             history = []

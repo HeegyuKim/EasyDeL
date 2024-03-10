@@ -37,12 +37,18 @@ class Llama2Prompter(BasePrompter, ABC):
             prefix: Optional[str]
     ) -> str:
 
-        dialogs = prefix if prefix is not None else ""
+        dialogs = system_message if system_message is not None else ""
 
-        for user, assistant in history:
-            dialogs += f"{self.user_message_token}{user}"
+        for i, (user, assistant) in enumerate(history):
+            if i == 0 and system_message is not None:
+                dialogs += f"{user}"
+            else:
+                dialogs += f"{self.user_message_token}{user}"
+
             dialogs += f"{self.assistant_message_token}{assistant}"
 
         dialogs += f"{self.user_message_token}{prompt}"
         dialogs += self.assistant_message_token
+        if prefix:
+            dialogs += prefix
         return dialogs

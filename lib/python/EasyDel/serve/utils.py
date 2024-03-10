@@ -25,6 +25,7 @@ class ChatRequest(BaseModel):
     history: Union[List[List[str]], None] = None
     temperature: Optional[float] = None
     greedy: Optional[bool] = False
+    response_prefix: Union[str] = None
 
 
 class Seafoam(Base):

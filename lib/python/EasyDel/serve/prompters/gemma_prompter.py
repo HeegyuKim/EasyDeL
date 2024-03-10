@@ -37,7 +37,7 @@ class GemmaPrompter(BasePrompter, ABC):
             prefix: Optional[str]
     ) -> str:
 
-        dialogs = prefix if prefix is not None else ""
+        dialogs = system_message if system_message is not None else ""
 
         for user, assistant in history:
             dialogs += f"{self.user_message_token}{user}{self.end_of_turn_token}"
@@ -45,4 +45,6 @@ class GemmaPrompter(BasePrompter, ABC):
 
         dialogs += f"{self.user_message_token}{prompt}{self.end_of_turn_token}"
         dialogs += self.assistant_message_token
+        if prefix:
+            dialogs += prefix
         return dialogs

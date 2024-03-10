@@ -15,7 +15,7 @@ class OpenChatPrompter(BasePrompter, ABC):
             user_message_token=user_prefix,
             assistant_message_token=assistant_prefix,
             prompter_type="openchat",
-            end_of_turn_token="<end_of_turn>",
+            end_of_turn_token="<|end_of_turn|>",
         )
 
     def format_history_prefix(
@@ -38,12 +38,14 @@ class OpenChatPrompter(BasePrompter, ABC):
             prefix: Optional[str]
     ) -> str:
 
-        dialogs = prefix if prefix is not None else ""
+        dialogs = system_message if system_message is not None else ""
 
         for user, assistant in history:
-            dialogs += f"{self.user_message_token}{user}"
-            dialogs += f"{self.assistant_message_token}{assistant}"
+            dialogs += f"{self.user_message_token}{user}{self.end_of_turn_token}"
+            dialogs += f"{self.assistant_message_token}{assistant}{self.end_of_turn_token}"
 
         dialogs += f"{self.user_message_token}{prompt}"
         dialogs += self.assistant_message_token
+        if prefix:
+            dialogs += prefix
         return dialogs

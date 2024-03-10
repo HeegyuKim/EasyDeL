@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Optional
 
 from absl.app import run
 from absl import flags
@@ -121,12 +121,12 @@ def main(argv):
 
     class JAXServerC(JAXServer):
         @staticmethod
-        def format_chat(history: List[List[str]], prompt: str, system: Union[str, None]) -> str:
+        def format_chat(history: List[List[str]], prompt: str, system: Union[str, None], response_prefix: Optional[str] = None) -> str:
             return prompter.format_message(
                 history=history,
                 prompt=prompt,
                 system_message=system,
-                prefix=None
+                prefix=response_prefix
             )
 
         @staticmethod
