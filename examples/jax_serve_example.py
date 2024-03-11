@@ -69,7 +69,7 @@ flags.DEFINE_bool(
 
 flags.DEFINE_bool(
     "use_scan_mlp",
-    default=True,
+    default=False,
     help="whether to scan MLP or FFN Layers for Large Sequence model up to 1M"
 )
 
