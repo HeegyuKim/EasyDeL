@@ -5,3 +5,4 @@ from .openchat_prompter import OpenChatPrompter
 from .chatml_prompter import ChatMLPrompter
 from .gemma_prompter import GemmaPrompter
 from .zephyr_prompter import ZephyrPrompter
+from .prometheus import PrometheusPrompter
