@@ -521,7 +521,7 @@ class CausalLanguageModelTrainer(BaseTrainer):
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     self._push_to_hub(state, checkpoint_path)
 
-        sync_global_devices()
+        # sync_global_devices()
         return filename
 
     def _push_to_hub(self, state: EasyDelState, checkpoint_path: str):

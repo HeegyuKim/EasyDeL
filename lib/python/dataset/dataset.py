@@ -2,7 +2,7 @@ from typing import Optional
 from dataclasses import dataclass
 import os 
 
-from datasets import Dataset, DatasetDict, concatenate_datasets, IterableDataset
+from datasets import Dataset, DatasetDict, concatenate_datasets, IterableDataset, interleave_datasets
 from .chat.train_templates import find_template
 
 from .registry import Registry
@@ -116,18 +116,18 @@ class DatasetLoader:
             kwargs["keep_in_memory"] = args.keep_in_memory
 
             for k in dd.keys():
+                required_fields = ["input_ids", "attention_mask", "valid_loss"]
+                cols = set(dd[k].column_names) - set(required_fields)
                 dd[k] = dd[k].map(
                     self.encode_item,
+                    remove_columns=cols, 
                     **kwargs
                     )
 
                 if self.args.packing:
-                    required_fields = ["input_ids", "attention_mask", "valid_loss"]
-                    cols = set(dd["train"].column_names) - set(required_fields)
                     dd[k] = dd[k].map(
                         self._pack, 
-                        batched=True, 
-                        remove_columns=cols, 
+                        batched=True,
                         **kwargs
                         )
         else:
@@ -232,7 +232,7 @@ class DatasetLoader:
                 raise
         
         if sources:
-            return concatenate_datasets(sources) if len(sources) > 1 else sources[0]
+            return interleave_datasets(sources, stopping_strategy="all_exhausted") if len(sources) > 1 else sources[0]
         else:
             return None
     

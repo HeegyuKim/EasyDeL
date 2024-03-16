@@ -16,11 +16,16 @@ class OpenOrcaGugugoKo(BaseAlpacaDataSource):
     output_key = "response"
     dataset_path = "squarelike/OpenOrca-gugugo-ko"
 
+@datasources("MarkrAI/KoCommercial-Dataset")
+class KoCommercialDataset(BaseAlpacaDataSource):
+    dataset_path = "MarkrAI/KoCommercial-Dataset"
+    
+    
 @datasources("heegyu/PKU-SafeRLHF-ko:safer")
 class PKUSafeRLHFKoSafer(ChatDataSource):
 
     def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
-        ds = load_dataset("heegyu/PKU-SafeRLHF-ko", split=split)
+        ds = load_dataset("heegyu/PKU-SafeRLHF-ko", split=split, streaming=args.streaming)
         # remove unsafe responses
         ds = ds.filter(lambda x: not (x["is_response_1_safe"] or x["is_response_0_safe"]))
         return ds
@@ -47,7 +52,7 @@ class PKUSafeRLHFKoSafer(ChatDataSource):
 class PKUSafeRLHFKoBetter(ChatDataSource):
 
     def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
-        ds = load_dataset("heegyu/PKU-SafeRLHF-ko", split=split)
+        ds = load_dataset("heegyu/PKU-SafeRLHF-ko", split=split, streaming=args.streaming)
         return ds
     
     def map_conversations(self, item):
@@ -75,7 +80,7 @@ class KoLimaVicuna(ChatDataSource):
     def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
         if split != "train":
             return None
-        ds = load_dataset("changpt/ko-lima-vicuna", split=split)
+        ds = load_dataset("changpt/ko-lima-vicuna", split=split, streaming=args.streaming)
         return ds
     
 @datasources("FreedomIntelligence/evol-instruct-korean")
@@ -84,7 +89,7 @@ class EvolInstructKorean(VicunaChatDataSource):
     def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
         if split != "train":
             return None
-        ds = load_dataset("FreedomIntelligence/evol-instruct-korean", split=split)
+        ds = load_dataset("FreedomIntelligence/evol-instruct-korean", split=split, streaming=args.streaming)
         return ds
 
 @datasources("heegyu/glaive-function-calling-v2-ko")
@@ -93,7 +98,7 @@ class GlaiveFunctionCallingV2Ko(ChatDataSource):
     def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
         if split != "train":
             return None
-        ds = load_dataset("heegyu/glaive-function-calling-v2-ko", split=split)
+        ds = load_dataset("heegyu/glaive-function-calling-v2-ko", split=split, streaming=args.streaming)
         ds = ds.select_columns(["function_description", "conversations_ko"])
         ds.rename_column("conversations_ko", "conversations")
         return ds

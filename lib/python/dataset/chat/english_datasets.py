@@ -1,5 +1,5 @@
 
-from .datasets import ChatDataSource, BaseAlpacaDataSource, datasources, DatasetArguments
+from .datasets import ChatDataSource, BaseAlpacaDataSource, datasources, DatasetArguments, VicunaChatDataSource
 from datasets import load_dataset, Dataset
 
 
@@ -35,15 +35,28 @@ class TinyCodes(BaseAlpacaDataSource):
     instruction_key = "prompt"
     output_key = "response"
     dataset_path = "nampdn-ai/tiny-codes"
-    
+
+@datasources.register("Locutusque/hercules-v1.0")    
+class Hercules(BaseAlpacaDataSource):
+    dataset_path = "Locutusque/hercules-v1.0"
 
 @datasources.register("HuggingFaceH4/ultrachat_200k")
 class UltraChat(ChatDataSource):
     def load(self, args: DatasetArguments, split: str) -> Dataset:
         if split != "train":
             return None
-        ds = load_dataset("HuggingFaceH4/ultrachat_200k", split=f"{split}_sft")
+        ds = load_dataset("HuggingFaceH4/ultrachat_200k", split=f"{split}_sft", streaming=args.streaming)
         ds = ds.rename_column("messages", "conversations")
+        return ds
+
+
+@datasources.register("Open-Orca/SlimOrca-Dedup")
+class SlimOrcaDedup(VicunaChatDataSource):
+    def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
+        if split != "train":
+            return None
+        ds = load_dataset("Open-Orca/SlimOrca-Dedup", split=split, streaming=args.streaming)
+        
         return ds
 
 
@@ -52,7 +65,7 @@ class Lima(ChatDataSource):
     def load(self, args: DatasetArguments, split: str) -> Dataset:
         if split != "train":
             return None
-        ds = load_dataset("GAIR/lima", split=split)
+        ds = load_dataset("GAIR/lima", split=split, streaming=args.streaming)
         ds = ds.map(self._map_conv, load_from_cache_file=False, desc="Converting a GAIR/lima dataset")
         
         return ds

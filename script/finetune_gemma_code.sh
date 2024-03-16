@@ -1,22 +1,19 @@
-# ../../script/finetune_gemma.sh 2b "Open-Orca/SlimOrca-Dedup" aya-slimorca-kocomm
-export HF_DATASETS_CACHE='/data-plm/hf-datasets'
-
 size="${1:-2b}"
-datasets=$2
+datasets="nampdn-ai/tiny-codes"
 
 model="google/gemma-$size"
-run_name="gemma-$size-$3"
+run_name="gemma-$size-code"
 batch_size=1
 
 python finetune.py \
-    --sharding mp \
     --run_name "$run_name" \
     --model_id "$model" \
     --datasets "$datasets" \
-    --epoch 3 \
-    --packing False \
-    --max_length 1024 \
+    --max_steps 1000000 \
+    --save_steps 100000 \
+    --max_length 2048 \
     --step_batch_size $batch_size \
     --total_batch_size 128 \
     --chat_template gemma \
+    --streaming \
     --lr 2e-5

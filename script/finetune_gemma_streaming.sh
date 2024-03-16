@@ -1,4 +1,4 @@
-# ../../script/finetune_gemma.sh 2b "Open-Orca/SlimOrca-Dedup" aya-slimorca-kocomm
+# ../../script/finetune_gemma_streaming.sh 2b "CohereForAI/aya_dataset,Open-Orca/SlimOrca-Dedup,MarkrAI/KoCommercial-Dataset" aya-slimorca-kocomm
 export HF_DATASETS_CACHE='/data-plm/hf-datasets'
 
 size="${1:-2b}"
@@ -13,9 +13,11 @@ python finetune.py \
     --run_name "$run_name" \
     --model_id "$model" \
     --datasets "$datasets" \
-    --epoch 3 \
-    --packing False \
-    --max_length 1024 \
+    --save_steps 50000 \
+    --max_steps 150000 \
+    --packing \
+    --streaming \
+    --max_length 2048 \
     --step_batch_size $batch_size \
     --total_batch_size 128 \
     --chat_template gemma \

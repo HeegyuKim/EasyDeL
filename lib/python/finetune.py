@@ -86,7 +86,7 @@ def main(run_name: str,
         input_shape=(1, 1),
         device_map="auto",
         sharding_axis_dims=sharding_axis_dims,
-        return_hf_model_class=True
+        return_hf_model_class=True,
     )
 
     config = model.config
@@ -100,6 +100,7 @@ def main(run_name: str,
         block_q=128,
         block_k=128,
         block_k_major=128,
+        use_scan_mlp=True,
     )
 
     configs_to_initialize_model_class = {
