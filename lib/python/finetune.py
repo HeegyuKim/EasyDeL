@@ -67,14 +67,15 @@ def main(run_name: str,
         chat_template=chat_template or model_id
     )
     dataset = DatasetLoader(data_args, tokenizer)
-    if not streaming:
-        save_steps = int(len(dataset.train_dataset) // step_batch_size * save_epochs) if save_epochs else None
-        save_epochs = None
-        print(f"{len(dataset.train_dataset)} items in dataset, save every {save_steps} steps.")
-        assert len(dataset.train_dataset) > 0, "No items in dataset"
-    else:
-        print("Cannot estimate dataset size in streaming.")
-        save_steps = None
+    if save_steps is None:
+        if not streaming:
+            save_steps = int(len(dataset.train_dataset) // step_batch_size * save_epochs) if save_epochs else None
+            save_epochs = None
+            print(f"{len(dataset.train_dataset)} items in dataset, save every {save_steps} steps.")
+            assert len(dataset.train_dataset) > 0, "No items in dataset"
+        else:
+            print("Cannot estimate dataset size in streaming.")
+            save_steps = None
         
 
     if push_to_hub_id is None:
