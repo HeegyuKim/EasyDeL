@@ -26,6 +26,7 @@ datasets="HuggingFaceTB/cosmopedia,koreans"
 
 model="heegyu/ko-llama-$size-random"
 run_name="ko-llama-$size"
+hub_id="ko-llama-$size-0317"
 
 python pretrain.py \
     --sharding $sharding \
@@ -34,4 +35,5 @@ python pretrain.py \
     --datasets "$datasets" \
     --max_length 2048 \
     --batch_size $batch_size \
+    --push_to_hub_id $hub_id \
     --lr $lr
