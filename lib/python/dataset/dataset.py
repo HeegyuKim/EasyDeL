@@ -14,6 +14,7 @@ NUM_PROC = max(1, min(16, os.cpu_count() // 2))
 class DatasetArguments():
     dataset: Optional[str] = None
     eval_dataset: Optional[str] = None
+    load_eval: bool = True
     dataset_streaming: bool = False
     max_length: int = 2048
 
@@ -25,6 +26,7 @@ class DatasetArguments():
     streaming: bool = False
     keep_in_memory: bool = False
     packing: bool = False
+    interleaving_strategy: str = "first_exhausted" # or all_exhausted
 
 datasources = Registry("datasource")
 
@@ -52,31 +54,12 @@ class DatasetLoader:
         self.dataset = self.prepare_dataset(args)
     
     def encode_item(self, item):
-        conversation = item["conversations"]
-        concat_inputs, concat_labels, concat_vals = [], [], []
-        
-        if self.args.train_prompt_prefix:
-            ids = self.tokenizer.encode(self.args.train_prompt_prefix, add_special_tokens=False)
-            concat_inputs.extend(ids)
-            concat_labels.extend([-100] * len(concat_inputs) if self.args.train_only_response else ids)
-
-        for i, uttr in enumerate(conversation):
-            content, trainable = self.train_template.handle_utterance(uttr, i)
-
-            input_ids = self.tokenizer.encode(content, add_special_tokens=False)
-
-            if not self.args.train_only_response or trainable:
-                vals = [1] * len(input_ids)
-            else:
-                vals = [0] * len(input_ids)
-
-            concat_inputs.extend(input_ids)
-            concat_vals.extend(vals)
+        input_ids = self.tokenizer.encode(item["text"], add_special_tokens=True)
 
         return {
-            "input_ids": concat_inputs,
-            "attention_mask": [1] * len(concat_inputs),
-            "valid_loss": concat_vals,
+            "input_ids": input_ids,
+            "attention_mask": [1] * len(input_ids),
+            "valid_loss": [1] * len(input_ids),
         }
     
     def encode_item_batch(self, batch):
@@ -99,47 +82,11 @@ class DatasetLoader:
         dd = {
             "train": self.get_sources(args, args.dataset, "train")
         }
-        test_set = self.get_sources(args, args.eval_dataset or args.dataset, "test")
-        if test_set is not None:
-            dd["test"] = test_set
+        if args.load_eval:
+            test_set = self.get_sources(args, args.eval_dataset or args.dataset, "test")
+            if test_set is not None:
+                dd["test"] = test_set
 
-        if args.limit:
-            for k in dd.keys():
-                if dd[k] is not None and len(dd[k]) > args.limit:
-                    dd[k] = dd[k].select(range(args.limit))
-        
-        if not args.streaming:
-            num_proc = max(1, min(len(dd['train']) // 2000, NUM_PROC))
-            kwargs = dict()
-            kwargs["num_proc"] = num_proc
-            kwargs["load_from_cache_file"] = False
-            kwargs["keep_in_memory"] = args.keep_in_memory
-
-            for k in dd.keys():
-                required_fields = ["input_ids", "attention_mask", "valid_loss"]
-                cols = set(dd[k].column_names) - set(required_fields)
-                dd[k] = dd[k].map(
-                    self.encode_item,
-                    remove_columns=cols, 
-                    **kwargs
-                    )
-
-                if self.args.packing:
-                    dd[k] = dd[k].map(
-                        self._pack, 
-                        batched=True,
-                        **kwargs
-                        )
-        else:
-            for k in dd.keys():
-                if args.streaming:
-                    dd[k] = IterableDataset.from_generator(
-                        self._pack_iter,
-                        gen_kwargs={"dataset": dd[k]}
-                    )
-                else:
-                    dd[k] = dd[k].with_transform(self.encode_item_batch)
-            
         self.dataset = dd
         print(dd)
         self.train_dataset = dd['train']
@@ -225,14 +172,49 @@ class DatasetLoader:
             try:
                 source = source_cls()
                 ds = source.load(args, split)
-                if ds is not None:
-                    sources.append(ds)
             except:
                 print(f"Failed to load dataset {source_cls.__class__.__name__}")
                 raise
         
+            if args.limit:
+                if ds is not None and len(ds) > args.limit:
+                    ds = ds.select(range(args.limit))
+            
+            if not args.streaming:
+                num_proc = max(1, min(len(ds) // 2000, NUM_PROC))
+                kwargs = dict()
+                kwargs["num_proc"] = num_proc
+                kwargs["load_from_cache_file"] = False
+                kwargs["keep_in_memory"] = args.keep_in_memory
+
+                required_fields = ["input_ids", "attention_mask", "valid_loss"]
+                cols = set(ds.column_names) - set(required_fields)
+                ds = ds.map(
+                    self.encode_item,
+                    remove_columns=cols, 
+                    **kwargs
+                    )
+
+                if self.args.packing:
+                    ds = ds.map(
+                        self._pack, 
+                        batched=True,
+                        **kwargs
+                        )
+            else:
+                if args.packing:
+                    ds = IterableDataset.from_generator(
+                        self._pack_iter,
+                        gen_kwargs={"dataset": ds}
+                    )
+                else:
+                    ds = ds.with_transform(self.encode_item_batch)
+                
+            if ds is not None:
+                sources.append(ds)
+
         if sources:
-            return interleave_datasets(sources, stopping_strategy="all_exhausted") if len(sources) > 1 else sources[0]
+            return interleave_datasets(sources, stopping_strategy=args.interleaving_strategy) if len(sources) > 1 else sources[0]
         else:
             return None
     
@@ -244,3 +226,37 @@ class DatasetLoader:
     # def test_dataset(self):
     #     return self.dataset.get('test')
     
+
+class ChatDatasetLoader(DatasetLoader):
+    
+    def __init__(self, args: DatasetArguments, tokenizer) -> None:
+        self.train_template = find_template(args.chat_template)(self.tokenizer)
+        super().__init__(args, tokenizer)
+    
+    def encode_item(self, item):
+        conversation = item["conversations"]
+        concat_inputs, concat_labels, concat_vals = [], [], []
+        
+        if self.args.train_prompt_prefix:
+            ids = self.tokenizer.encode(self.args.train_prompt_prefix, add_special_tokens=False)
+            concat_inputs.extend(ids)
+            concat_labels.extend([-100] * len(concat_inputs) if self.args.train_only_response else ids)
+
+        for i, uttr in enumerate(conversation):
+            content, trainable = self.train_template.handle_utterance(uttr, i)
+
+            input_ids = self.tokenizer.encode(content, add_special_tokens=False)
+
+            if not self.args.train_only_response or trainable:
+                vals = [1] * len(input_ids)
+            else:
+                vals = [0] * len(input_ids)
+
+            concat_inputs.extend(input_ids)
+            concat_vals.extend(vals)
+
+        return {
+            "input_ids": concat_inputs,
+            "attention_mask": [1] * len(concat_inputs),
+            "valid_loss": concat_vals,
+        }
