@@ -1,6 +1,6 @@
 # ../../script/finetune_gemma_streaming.sh 2b "CohereForAI/aya_dataset,Open-Orca/SlimOrca-Dedup,MarkrAI/KoCommercial-Dataset" aya-slimorca-kocomm
-# ../../script/finetune_gemma_streaming.sh 2b "Open-Orca/SlimOrca-Dedup,MarkrAI/KoCommercial-Dataset" slimorca-kocomm
-export HF_DATASETS_CACHE='/data-plm/hf-datasets'
+# ../../script/finetune_gemma_streaming.sh 2b "MarkrAI/KoCommercial-Dataset" kocomm
+# export HF_DATASETS_CACHE='/data-plm/hf-datasets'
 
 size="${1:-2b}"
 datasets=$2

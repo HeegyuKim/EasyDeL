@@ -13,7 +13,7 @@ from EasyDel import (
     get_modules_by_type,
     easystate_to_huggingface_model
 )
-from dataset import DatasetLoader, DatasetArguments
+from dataset import ChatDatasetLoader, DatasetArguments
 from typing import Optional
 
 from flax.core import FrozenDict, unfreeze
@@ -66,7 +66,7 @@ def main(run_name: str,
         keep_in_memory=keep_in_memory,
         chat_template=chat_template or model_id
     )
-    dataset = DatasetLoader(data_args, tokenizer)
+    dataset = ChatDatasetLoader(data_args, tokenizer)
     if save_steps is None:
         if not streaming:
             save_steps = int(len(dataset.train_dataset) // step_batch_size * save_epochs) if save_epochs else None

@@ -230,7 +230,7 @@ class DatasetLoader:
 class ChatDatasetLoader(DatasetLoader):
     
     def __init__(self, args: DatasetArguments, tokenizer) -> None:
-        self.train_template = find_template(args.chat_template)(self.tokenizer)
+        self.train_template = find_template(args.chat_template)(tokenizer)
         super().__init__(args, tokenizer)
     
     def encode_item(self, item):
