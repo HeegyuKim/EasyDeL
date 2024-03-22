@@ -21,18 +21,6 @@ flags.DEFINE_string(
     help="The pretrained model path in huggingface.co/models"
 )
 flags.DEFINE_integer(
-    "max_compile_tokens",
-    default=2048,
-    help="Maximum number of compiled tokens"
-)
-
-flags.DEFINE_integer(
-    "max_new_tokens_ratio",
-    default=1,
-    help="max new tokens ratio to be multiplied for max_compile_tokens for max_new_tokens"
-)
-
-flags.DEFINE_integer(
     "max_sequence_length",
     default=2048,
     help="max sequence length to be used in the model"
@@ -102,8 +90,8 @@ flags.DEFINE_bool(
 def main(argv):
     server_config = JAXServerConfig(
         max_sequence_length=FLAGS.max_sequence_length,
-        max_compile_tokens=FLAGS.max_compile_tokens,
-        max_new_tokens=FLAGS.max_compile_tokens * FLAGS.max_new_tokens_ratio,
+        max_compile_tokens=FLAGS.max_sequence_length,
+        max_new_tokens=FLAGS.max_sequence_length,
         dtype=FLAGS.dtype,
         host="0.0.0.0",
         port=35020,
@@ -153,7 +141,7 @@ def main(argv):
         model_config_kwargs=dict(
             fully_sharded_data_parallel=False,
             attn_mechanism=FLAGS.attn_mechanism,
-            scan_mlp_chunk_size=FLAGS.max_compile_tokens,
+            scan_mlp_chunk_size=FLAGS.max_sequence_length,
             use_scan_mlp=FLAGS.use_scan_mlp,
             scan_ring_attention=FLAGS.scan_ring_attention,
             block_k=FLAGS.block_k,

@@ -255,7 +255,8 @@ class JAXServer(GradioUserInference):
                 attention_mask=attention_mask,
                 params=parameters,
                 generation_config=GenerationConfig(
-                    max_new_tokens=self.server_config.max_compile_tokens,
+                    # max_new_tokens=self.server_config.max_compile_tokens,
+                    max_length=self.server_config.max_sequence_length,
 
                     eos_token_id=self.server_config.eos_token_id or tokenizer.eos_token_id,
                     pad_token_id=self.server_config.pad_token_id or tokenizer.pad_token_id,
@@ -281,7 +282,8 @@ class JAXServer(GradioUserInference):
                 params=parameters,
                 prng_key=rng,
                 generation_config=GenerationConfig(
-                    max_new_tokens=self.server_config.max_compile_tokens,
+                    # max_new_tokens=self.server_config.max_compile_tokens,
+                    max_length=self.server_config.max_sequence_length,
 
                     eos_token_id=self.server_config.eos_token_id or tokenizer.eos_token_id,
                     pad_token_id=self.server_config.pad_token_id or tokenizer.pad_token_id,
