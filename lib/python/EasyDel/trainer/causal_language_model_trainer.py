@@ -536,7 +536,8 @@ class CausalLanguageModelTrainer(BaseTrainer):
                     verbose=True,
                 ),
                 base_huggingface_module=self.arguments.push_to_hub_hf_pt_model_cls,
-                config=self.arguments.configs_to_initialize_model_class["config"]
+                config=self.arguments.configs_to_initialize_model_class["config"],
+                dtype=torch.bfloat16
             )
             print("Saving huggingface model to local disk")
             model.save_pretrained(folder_path)

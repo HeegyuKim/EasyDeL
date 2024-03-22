@@ -11,7 +11,8 @@ class GradioUserInference:
             sample_func: typing.Callable,
             max_sequence_length: int,
             max_new_tokens: int,
-            max_compile_tokens: int
+            max_compile_tokens: int,
+            title: str = ""
     ):
         """
         The function `chat_interface_components` creates the components for a chat interface, including
@@ -25,8 +26,7 @@ class GradioUserInference:
 
         with gr.Column("100%"):
             gr.Markdown(
-                "# <h1><center style='color:white;'>Powered by "
-                "[EasyDeL](https://github.com/erfanzar/EasyDel)</center></h1>",
+                f"# <h1><center style='color:white;'>{title}</center></h1>",
             )
             history = gr.Chatbot(
                 elem_id="EasyDel",
@@ -171,7 +171,8 @@ class GradioUserInference:
             sample_func: typing.Callable,
             max_sequence_length: int,
             max_new_tokens: int,
-            max_compile_tokens: int
+            max_compile_tokens: int,
+            title: str = ""
     ) -> gr.Blocks:
         """
         The function "build_inference" returns a gr.Blocks object that model
@@ -185,7 +186,8 @@ class GradioUserInference:
                 sample_func=sample_func,
                 max_sequence_length=max_sequence_length,
                 max_new_tokens=max_new_tokens,
-                max_compile_tokens=max_compile_tokens
+                max_compile_tokens=max_compile_tokens,
+                title=title
             )
         return block
 

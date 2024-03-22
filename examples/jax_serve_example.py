@@ -22,13 +22,13 @@ flags.DEFINE_string(
 )
 flags.DEFINE_integer(
     "max_compile_tokens",
-    default=256,
+    default=2048,
     help="Maximum number of compiled tokens"
 )
 
 flags.DEFINE_integer(
     "max_new_tokens_ratio",
-    default=20,
+    default=1,
     help="max new tokens ratio to be multiplied for max_compile_tokens for max_new_tokens"
 )
 

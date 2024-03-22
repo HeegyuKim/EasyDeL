@@ -72,7 +72,7 @@ class MistralRMSNorm(nn.Module):
     dim: int
     eps: float = 1e-6
     dtype: jnp.dtype = jnp.bfloat16
-    param_dtype: jnp.dtype = jnp.bfloat16
+    param_dtype: jnp.dtype = jnp.float32
 
     def setup(self) -> None:
         self.weight = self.param(

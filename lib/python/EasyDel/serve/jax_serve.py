@@ -128,7 +128,7 @@ class JAXServerConfig:
 
 class JAXServer(GradioUserInference):
 
-    def __init__(self, server_config=None):
+    def __init__(self, server_config=None, title: str = ''):
 
         """
         The __init__ function is called when the class is instantiated.
@@ -156,6 +156,7 @@ class JAXServer(GradioUserInference):
             server_config = JAXServerConfig()
 
         self.server_config = server_config
+        self.title = title
         self._funcs_generated = False
         self.number_of_served_request_until_last_up_time = 0
 
@@ -259,7 +260,7 @@ class JAXServer(GradioUserInference):
                     eos_token_id=self.server_config.eos_token_id or tokenizer.eos_token_id,
                     pad_token_id=self.server_config.pad_token_id or tokenizer.pad_token_id,
                     bos_token_id=self.server_config.bos_token_id or tokenizer.bos_token_id,
-
+                    early_stopping=True,
                     do_sample=False,
                     num_beams=1,
                 )
@@ -287,6 +288,7 @@ class JAXServer(GradioUserInference):
                     bos_token_id=self.server_config.bos_token_id or tokenizer.bos_token_id,
 
                     temperature=self.server_config.temperature,
+                    early_stopping=True,
                     do_sample=True,
                     num_beams=1,
                     top_p=self.server_config.top_p,
@@ -484,7 +486,8 @@ class JAXServer(GradioUserInference):
             verbose=verbose,
             do_memory_log=do_memory_log,
             add_params_field=add_params_field,
-            fully_sharded_data_parallel=model_config_kwargs.get("fully_sharded_data_parallel", True)
+            fully_sharded_data_parallel=model_config_kwargs.get("fully_sharded_data_parallel", True),
+            title=pretrained_model_name_or_path
         )
 
     @classmethod
@@ -499,6 +502,7 @@ class JAXServer(GradioUserInference):
             do_memory_log: bool = False,
             verbose: bool = True,
             fully_sharded_data_parallel=True,
+            title: str = ""
     ):
         """
         The from_parameters function is used to load a model from the parameters of a pretrained model.
@@ -528,7 +532,7 @@ class JAXServer(GradioUserInference):
         assert hasattr(config_model, "get_partition_rules"), (
             "config_model must contain get_partition_rules functions"
         )
-        server = cls(server_config=server_config)
+        server = cls(server_config=server_config, title=title)
 
         with server.mesh:
             logging.info(
@@ -947,10 +951,11 @@ class JAXServer(GradioUserInference):
         else:
             logging.warning("you have to fire server before ending that this command will be ignored")
 
-    def gradio_inference(self):
+    def gradio_inference(self, title=""):
         return self.build_inference(
             sample_func=self.sample_gradio,
             max_sequence_length=self.server_config.max_sequence_length,
             max_new_tokens=self.server_config.max_new_tokens,
             max_compile_tokens=self.server_config.max_compile_tokens,
+            title=title
         )
