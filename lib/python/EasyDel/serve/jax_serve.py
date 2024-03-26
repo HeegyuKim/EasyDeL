@@ -65,10 +65,10 @@ class JAXServerConfig:
     max_sequence_length: int = 4096
     max_new_tokens: int = 4096
     max_compile_tokens: int = 64
-    temperature: float = 0.1
+    temperature: float = 1.0
     top_p: float = 0.95
     top_k: int = 50
-    repetition_penalty: float = 1.2
+    repetition_penalty: Optional[float] = None
 
     eos_token_id: Optional[int] = None
     pad_token_id: Optional[int] = None
@@ -262,7 +262,7 @@ class JAXServer(GradioUserInference):
                     eos_token_id=self.server_config.eos_token_id or tokenizer.eos_token_id,
                     pad_token_id=self.server_config.pad_token_id or tokenizer.pad_token_id,
                     bos_token_id=self.server_config.bos_token_id or tokenizer.bos_token_id,
-                    # early_stopping=True,
+                    early_stopping=True,
                     do_sample=False,
                     num_beams=1,
                 )
@@ -291,7 +291,7 @@ class JAXServer(GradioUserInference):
                     bos_token_id=self.server_config.bos_token_id or tokenizer.bos_token_id,
 
                     temperature=self.server_config.temperature,
-                    # early_stopping=True,
+                    early_stopping=True,
                     do_sample=True,
                     num_beams=1,
                     top_p=self.server_config.top_p,
