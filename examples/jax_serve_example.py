@@ -21,10 +21,22 @@ flags.DEFINE_string(
     help="The pretrained model path in huggingface.co/models"
 )
 flags.DEFINE_integer(
+    "max_compile_tokens",
+    default=256,
+    help="Maximum number of compiled tokens"
+)
+
+flags.DEFINE_integer(
     "max_sequence_length",
+    default=4096,
+    help="max sequence length to be used in the model"
+)
+flags.DEFINE_integer(
+    "prompt_length",
     default=2048,
     help="max sequence length to be used in the model"
 )
+
 
 flags.DEFINE_enum(
     "dtype",
@@ -89,12 +101,14 @@ flags.DEFINE_bool(
 
 def main(argv):
     server_config = JAXServerConfig(
+        prompt_length=FLAGS.prompt_length,
         max_sequence_length=FLAGS.max_sequence_length,
-        max_compile_tokens=FLAGS.max_sequence_length,
-        max_new_tokens=FLAGS.max_sequence_length,
+        max_compile_tokens=FLAGS.max_sequence_length - FLAGS.prompt_length, # FLAGS.max_compile_tokens,
+        # max_new_tokens=FLAGS.max_sequence_length,
         dtype=FLAGS.dtype,
         host="0.0.0.0",
         port=35020,
+        title=FLAGS.pretrained_model_name_or_path
     )
     prompters = {
         "gemma": GemmaPrompter(),

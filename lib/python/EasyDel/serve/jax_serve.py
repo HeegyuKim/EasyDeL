@@ -58,8 +58,10 @@ class JAXServerConfig:
     """
     host: str = "0.0.0.0"
     port: int = 2059
+    title: str = ""
     batch_size: int = 1
 
+    prompt_length: int = 1024
     max_sequence_length: int = 4096
     max_new_tokens: int = 4096
     max_compile_tokens: int = 64
@@ -128,7 +130,7 @@ class JAXServerConfig:
 
 class JAXServer(GradioUserInference):
 
-    def __init__(self, server_config=None, title: str = ''):
+    def __init__(self, server_config=None):
 
         """
         The __init__ function is called when the class is instantiated.
@@ -156,7 +158,6 @@ class JAXServer(GradioUserInference):
             server_config = JAXServerConfig()
 
         self.server_config = server_config
-        self.title = title
         self._funcs_generated = False
         self.number_of_served_request_until_last_up_time = 0
 
@@ -261,7 +262,7 @@ class JAXServer(GradioUserInference):
                     eos_token_id=self.server_config.eos_token_id or tokenizer.eos_token_id,
                     pad_token_id=self.server_config.pad_token_id or tokenizer.pad_token_id,
                     bos_token_id=self.server_config.bos_token_id or tokenizer.bos_token_id,
-                    early_stopping=True,
+                    # early_stopping=True,
                     do_sample=False,
                     num_beams=1,
                 )
@@ -290,7 +291,7 @@ class JAXServer(GradioUserInference):
                     bos_token_id=self.server_config.bos_token_id or tokenizer.bos_token_id,
 
                     temperature=self.server_config.temperature,
-                    early_stopping=True,
+                    # early_stopping=True,
                     do_sample=True,
                     num_beams=1,
                     top_p=self.server_config.top_p,
@@ -488,8 +489,7 @@ class JAXServer(GradioUserInference):
             verbose=verbose,
             do_memory_log=do_memory_log,
             add_params_field=add_params_field,
-            fully_sharded_data_parallel=model_config_kwargs.get("fully_sharded_data_parallel", True),
-            title=pretrained_model_name_or_path
+            fully_sharded_data_parallel=model_config_kwargs.get("fully_sharded_data_parallel", True)
         )
 
     @classmethod
@@ -503,8 +503,7 @@ class JAXServer(GradioUserInference):
             add_params_field: bool = True,
             do_memory_log: bool = False,
             verbose: bool = True,
-            fully_sharded_data_parallel=True,
-            title: str = ""
+            fully_sharded_data_parallel=True
     ):
         """
         The from_parameters function is used to load a model from the parameters of a pretrained model.
@@ -534,7 +533,7 @@ class JAXServer(GradioUserInference):
         assert hasattr(config_model, "get_partition_rules"), (
             "config_model must contain get_partition_rules functions"
         )
-        server = cls(server_config=server_config, title=title)
+        server = cls(server_config=server_config)
 
         with server.mesh:
             logging.info(
@@ -859,11 +858,12 @@ class JAXServer(GradioUserInference):
         
         """
 
-        fixed_pad = self.server_config.max_sequence_length - self.server_config.max_compile_tokens
+        fixed_pad = self.server_config.prompt_length
         tokens = self.prefix_tokenizer(
             string,
             max_length=fixed_pad,
             padding="max_length",
+            truncation=True,
             return_tensors="jax"
         ) if self.server_config.use_prefix_tokenizer else self.tokenizer(
             string,
@@ -874,49 +874,55 @@ class JAXServer(GradioUserInference):
         attention_mask = tokens.attention_mask
         num_generated_tokens = 0
 
-        for _ in range((max_new_tokens or self.server_config.max_new_tokens) // self.server_config.max_compile_tokens):
-            inputs_to_gen = dict(
-                params=self.params,
-                input_ids=input_ids,
-                attention_mask=attention_mask
-            )
-            predicted_token = self.greedy_generate(**inputs_to_gen) if greedy else self.generate(**inputs_to_gen)
-            predicted_token = predicted_token[
-                predicted_token != self.tokenizer.pad_token_id if (
-                        self.server_config.pad_token_id is None
-                ) else predicted_token != self.server_config.pad_token_id
-            ]
-            if predicted_token.ndim == 1:
-                predicted_token = predicted_token.reshape(1, -1)
-            num_generated_tokens += predicted_token.shape[-1]
-            plus_attn_mask = jnp.ones((len(attention_mask), self.server_config.max_compile_tokens), dtype=jnp.int32)
+        # for _ in range((max_new_tokens or self.server_config.max_new_tokens) // self.server_config.max_compile_tokens):
+        inputs_to_gen = dict(
+            params=self.params,
+            input_ids=input_ids,
+            attention_mask=attention_mask
+        )
+        predicted_token = self.greedy_generate(**inputs_to_gen) if greedy else self.generate(**inputs_to_gen)
 
-            input_ids = jnp.concatenate(
-                (input_ids, predicted_token), axis=-1
-            )[:, -fixed_pad:]
+        returns = (
+            self.tokenizer.decode(predicted_token[0], skip_special_tokens=True),
+            num_generated_tokens
+        )
 
-            attention_mask = jnp.concatenate(
-                (attention_mask, plus_attn_mask), dtype=jnp.int32,
-                axis=-1
-            )[:, -fixed_pad:]
+        # predicted_token = predicted_token[
+        #     predicted_token != self.tokenizer.pad_token_id if (
+        #             self.server_config.pad_token_id is None
+        #     ) else predicted_token != self.server_config.pad_token_id
+        # ]
+        # if predicted_token.ndim == 1:
+        #     predicted_token = predicted_token.reshape(1, -1)
+        # num_generated_tokens += predicted_token.shape[-1]
+        # plus_attn_mask = jnp.ones((len(attention_mask), self.server_config.max_compile_tokens), dtype=jnp.int32)
 
-            returns = (
-                self.tokenizer.decode(input_ids[0][-num_generated_tokens:], skip_special_tokens=True),
-                num_generated_tokens
-            )
+        # input_ids = jnp.concatenate(
+        #     (input_ids, predicted_token), axis=-1
+        # )[:, -fixed_pad:]
 
-            yield returns
+        # attention_mask = jnp.concatenate(
+        #     (attention_mask, plus_attn_mask), dtype=jnp.int32,
+        #     axis=-1
+        # )[:, -fixed_pad:]
 
-            if self.server_config.use_mxn_break_point:
-                if predicted_token.shape[-1] != self.server_config.max_compile_tokens:
-                    break
+        # returns = (
+        #     self.tokenizer.decode(input_ids[0][-num_generated_tokens:], skip_special_tokens=True),
+        #     num_generated_tokens
+        # )
 
-            if (
-                    predicted_token[0][-1] == (self.server_config.eos_token_id or self.tokenizer.eos_token_id)
-                    or
-                    predicted_token[0][-1] == (self.server_config.eos_token_id or self.prefix_tokenizer.eos_token_id)
-            ):
-                break
+        yield returns
+
+        # if self.server_config.use_mxn_break_point:
+        #     if predicted_token.shape[-1] != self.server_config.max_compile_tokens:
+        #         break
+
+        # if (
+        #         predicted_token[0][-1] == (self.server_config.eos_token_id or self.tokenizer.eos_token_id)
+        #         or
+        #         predicted_token[0][-1] == (self.server_config.eos_token_id or self.prefix_tokenizer.eos_token_id)
+        # ):
+        #     break
 
     def fire(self):
         """
@@ -953,11 +959,11 @@ class JAXServer(GradioUserInference):
         else:
             logging.warning("you have to fire server before ending that this command will be ignored")
 
-    def gradio_inference(self, title=""):
+    def gradio_inference(self):
         return self.build_inference(
             sample_func=self.sample_gradio,
             max_sequence_length=self.server_config.max_sequence_length,
             max_new_tokens=self.server_config.max_new_tokens,
             max_compile_tokens=self.server_config.max_compile_tokens,
-            title=title
+            title=self.server_config.title
         )
