@@ -39,9 +39,7 @@ class ZephyrPrompter(BasePrompter, ABC):
             prefix: Optional[str]
     ) -> str:
 
-        sys_pr = "" if system_message is None else f"<|system|>\n{system_message}{self.end_of_turn_token}"
-        dialogs = prefix if prefix is not None else ""
-        dialogs = sys_pr + dialogs
+        dialogs = "" if system_message is None else f"<|system|>\n{system_message}{self.end_of_turn_token}"
 
         for user, assistant in history:
             dialogs += f"{self.user_message_token}{user}"
@@ -49,4 +47,7 @@ class ZephyrPrompter(BasePrompter, ABC):
 
         dialogs += f"{self.user_message_token}{prompt}"
         dialogs += self.assistant_message_token
+        if prefix:
+            dialogs += prefix
+
         return dialogs

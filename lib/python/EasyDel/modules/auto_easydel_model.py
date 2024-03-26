@@ -307,6 +307,7 @@ class AutoEasyDelModelForCausalLM:
             backend: Optional[str] = None,
             config_kwargs: Optional[Mapping[str, Any]] = None,
             return_hf_model_class: bool = False,
+            adapter_kwargs: Optional[Mapping[str, Any]] = None,
             **kwargs
     ) -> Tuple[EasyDelFlaxPretrainedModel, dict]:
         """
@@ -348,6 +349,14 @@ class AutoEasyDelModelForCausalLM:
         logger.debug(f"Downloading model weights from {pretrained_model_name_or_path}")
         model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path, **kwargs)
         hf_model_class = model.__class__
+
+        if adapter_kwargs is not None:
+            from peft import PeftModel
+            model = PeftModel.from_pretrained(
+                model,
+                **adapter_kwargs
+            )
+            model = model.merge_and_unload()
 
         cfg = cfg.from_pretrained(pretrained_model_name_or_path)
         state_dict = model.state_dict()

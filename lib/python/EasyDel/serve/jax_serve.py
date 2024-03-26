@@ -453,6 +453,7 @@ class JAXServer(GradioUserInference):
             add_params_field: bool = True,
             do_memory_log: bool = False,
             model_config_kwargs: Optional[Mapping[str, Any]] = None,
+            adapter_kwargs: Optional[Mapping[str, Any]] = None,
             verbose: bool = True,
             **kwargs
     ):
@@ -477,6 +478,7 @@ class JAXServer(GradioUserInference):
             input_shape=input_shape,
             backend=backend,
             config_kwargs=model_config_kwargs,
+            adapter_kwargs=adapter_kwargs,
             **kwargs
         )
 

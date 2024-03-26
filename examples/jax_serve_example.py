@@ -100,6 +100,31 @@ flags.DEFINE_bool(
 
 
 def main(argv):
+    title = FLAGS.pretrained_model_name_or_path
+
+    if FLAGS.pretrained_model_name_or_path.startswith("peft:"):
+        peft_model_id = FLAGS.pretrained_model_name_or_path.split(":", 1)[1]
+        
+        if "@" in peft_model_id:
+            peft_model_id, revision = peft_model_id.split("@", 1)
+        else:
+            peft_model_id, revision = peft_model_id, None
+
+
+        from peft import PeftConfig
+        peft_config = PeftConfig.from_pretrained(peft_model_id, revision=revision)
+        FLAGS.pretrained_model_name_or_path = peft_config.base_model_name_or_path
+        # peft:heegyu/hi@epoch-3
+
+        adapter_kwargs = dict(
+            model_id=peft_model_id,
+            revision=revision,
+        )
+        print(f"Original Model: {FLAGS.pretrained_model_name_or_path}, Peft Model: {peft_model_id}, Peft Revision: {revision}")
+
+    else:
+        adapter_kwargs = None
+
     server_config = JAXServerConfig(
         prompt_length=FLAGS.prompt_length,
         max_sequence_length=FLAGS.max_sequence_length,
@@ -108,7 +133,7 @@ def main(argv):
         dtype=FLAGS.dtype,
         host="0.0.0.0",
         port=35020,
-        title=FLAGS.pretrained_model_name_or_path
+        title=title
     )
     prompters = {
         "gemma": GemmaPrompter(),
@@ -142,6 +167,7 @@ def main(argv):
                 history=[]
             )
     print(FLAGS.sharding_axis_dims)
+
     server = JAXServerC.from_torch_pretrained(
         server_config=server_config,
         pretrained_model_name_or_path=FLAGS.pretrained_model_name_or_path,
@@ -152,6 +178,7 @@ def main(argv):
         sharding_axis_dims=FLAGS.sharding_axis_dims,
         sharding_axis_names=("dp", "fsdp", "tp", "sp"),
         input_shape=(1, server_config.max_sequence_length),
+        adapter_kwargs=adapter_kwargs,
         model_config_kwargs=dict(
             fully_sharded_data_parallel=False,
             attn_mechanism=FLAGS.attn_mechanism,
