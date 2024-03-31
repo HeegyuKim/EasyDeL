@@ -1,14 +1,20 @@
-# ../../script/koopenchat/finetune_gemma.sh 7b "maywell/koVast" ko-openchat-7b-0331
-# ../../script/koopenchat/finetune_gemma.sh 2b "maywell/koVast" ko-openchat-2b-0331
+
+# ../../script/koopenchat/finetune_gemma.sh 7b "maywell/koVast" 2
+
+# ../../script/koopenchat/finetune_gemma.sh 2b "maywell/koVast" 4
+# ../../script/koopenchat/finetune_gemma.sh 2b "heegyu/KoCommercial-Dataset" 4
+# ../../script/koopenchat/finetune_gemma.sh 2b "squarelike/OpenOrca-gugugo-ko" 4
 
 size="${1:-2b}"
 datasets=$2
+batch_size=${3:-1}
 
+echo "Batch size: $batch_size"
 
-export WANDB_PROJECT=ko-openchat-10.8b
+export WANDB_PROJECT=ko-openchat-$size
 model="beomi/gemma-ko-$size"
-run_name="gemma-$size-$3"
-batch_size=2
+run_name="gemma-$size-$datasets"
+
 
 python finetune.py \
     --sharding mp \

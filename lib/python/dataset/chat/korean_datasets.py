@@ -16,9 +16,9 @@ class OpenOrcaGugugoKo(BaseAlpacaDataSource):
     output_key = "response"
     dataset_path = "squarelike/OpenOrca-gugugo-ko"
 
-@datasources("MarkrAI/KoCommercial-Dataset")
+@datasources("heegyu/KoCommercial-Dataset")
 class KoCommercialDataset(BaseAlpacaDataSource):
-    dataset_path = "MarkrAI/KoCommercial-Dataset"
+    dataset_path = "heegyu/KoCommercial-Dataset"
     
 
 @datasources("maywell/koVast")
