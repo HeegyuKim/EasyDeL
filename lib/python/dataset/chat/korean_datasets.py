@@ -82,7 +82,7 @@ class PKUSafeRLHFKoBetter(ChatDataSource):
 
 
 @datasources("changpt/ko-lima-vicuna")
-class KoLimaVicuna(ChatDataSource):
+class KoLimaVicuna(VicunaChatDataSource):
     
     def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
         if split != "train":

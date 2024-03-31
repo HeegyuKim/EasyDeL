@@ -55,6 +55,7 @@ class TrainArguments(
             model_name: str,
             num_train_epochs: int,
             project: Optional[str] = None,
+            run_name: Optional[str] = None,
             model_class: Optional[EasyDelFlaxPretrainedModel | Type[EasyDelFlaxPretrainedModel]] = None,
             model_huggingface_repo_id: Optional[str] = None,
             total_batch_size: int = 32,
@@ -315,6 +316,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
             steps=max_scheduler_steps or self.max_training_steps,
         )
         self.project = project
+        self.run_name = run_name
         self.training_time = self._time_to_seconds(training_time) if training_time is not None else None
         torch.set_default_device("cpu")
         self.merge_lora_rapture_parameters = merge_lora_rapture_parameters
@@ -395,7 +397,8 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
                 "OST-OpenSourceTransformers",
                 "Jax/Flax"
             ],
-            entity=self.wandb_entity
+            entity=self.wandb_entity,
+            name=self.run_name
 
         ) if self.log_all_workers or (jax.process_index() == 0) else None
 

@@ -5,10 +5,10 @@ size="${1:-2b}"
 datasets=$2
 
 
-# model="google/gemma-$size"
+export WANDB_PROJECT=ko-openchat-10.8b
 model="beomi/gemma-ko-$size"
 run_name="gemma-$size-$3"
-batch_size=1
+batch_size=2
 
 python finetune.py \
     --sharding mp \
@@ -23,4 +23,5 @@ python finetune.py \
     --step_batch_size $batch_size \
     --total_batch_size 128 \
     --chat_template gemma \
-    --lr 1e-4
+    --save_epochs 1 \
+    --lr 2e-5
