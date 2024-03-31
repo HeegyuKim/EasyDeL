@@ -49,6 +49,7 @@ def main(run_name: str,
          distributed: bool = False,
          keep_in_memory: bool = False,
          ):
+    run_name = run_name.replace("/", "__")
     sharding_axis_dims = SHARDING_AXIES[sharding]
     pretrained_model_name_or_path = model_id
     assert total_batch_size % step_batch_size == 0, "total_batch_size must be divisible by step_batch_size"
