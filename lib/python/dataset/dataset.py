@@ -26,6 +26,7 @@ class DatasetArguments():
     streaming: bool = False
     keep_in_memory: bool = False
     packing: bool = False
+    load_from_cache_file: Optional[bool] = False
     interleaving_strategy: str = "first_exhausted" # or all_exhausted
 
 datasources = Registry("datasource")
@@ -42,7 +43,7 @@ class DataSource:
     def map_dataset(self, args: DatasetArguments, ds: Dataset, func, batched=False) -> Dataset:
         if args.limit:
             ds = ds.select(range(self.args.limit))
-        return ds.map(func, num_proc=NUM_PROC, load_from_cache_file=False, batched=batched)
+        return ds.map(func, num_proc=NUM_PROC, load_from_cache_file=args.load_from_cache_file, batched=batched)
     
 
 class DatasetLoader:
@@ -184,7 +185,7 @@ class DatasetLoader:
                 num_proc = max(1, min(len(ds) // 2000, NUM_PROC))
                 kwargs = dict()
                 kwargs["num_proc"] = num_proc
-                kwargs["load_from_cache_file"] = False
+                kwargs["load_from_cache_file"] = args.load_from_cache_file
                 kwargs["keep_in_memory"] = args.keep_in_memory
 
                 required_fields = ["input_ids", "attention_mask", "valid_loss"]

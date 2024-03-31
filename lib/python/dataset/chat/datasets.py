@@ -25,7 +25,7 @@ class ChatDataSource(DataSource):
                 ds = ds.map(
                     self.map_conversations, 
                     num_proc=NUM_PROC, 
-                    load_from_cache_file=None, 
+                    load_from_cache_file=args.load_from_cache_file, 
                     keep_in_memory=args.keep_in_memory,
                     desc="Converting to conversational format"
                 ).select_columns(["conversations"])
