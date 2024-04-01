@@ -530,6 +530,11 @@ class CausalLanguageModelTrainer(BaseTrainer):
 
         with jax.default_device(jax.devices("cpu")[0]), \
             tempfile.TemporaryDirectory() as folder_path:
+            config = self.arguments.configs_to_initialize_model_class["config"]
+            
+            if config.model_type == "gemma" and not hasattr(config, "hidden_activation"):
+                config.hidden_activation = None
+
             model = easystate_to_huggingface_model(
                 state=EasyDelState.load_state(
                     checkpoint_path=checkpoint_path,
@@ -537,8 +542,10 @@ class CausalLanguageModelTrainer(BaseTrainer):
                 ),
                 base_huggingface_module=self.arguments.push_to_hub_hf_pt_model_cls,
                 config=self.arguments.configs_to_initialize_model_class["config"],
-                dtype="fp16"
+                dtype="fp32"
             )
+            model.config = self.arguments.configs_to_initialize_model_class["config"]
+            model = model.bfloat16()
             print("Saving huggingface model to local disk")
             model.save_pretrained(folder_path)
             del model

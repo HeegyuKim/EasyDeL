@@ -31,6 +31,7 @@ class BaseTrainTemplate:
     FUNCTION_CALLING_FORMAT = "<|im_start|>function_calling\n{content}{eos}\n"
     FUNCTION_RESPONSE_FORMAT = "<|im_start|>function_response\n{content}{eos}\n"
 
+    TURN_SEPERATOR = "\n"
 
     def __init__(self, tokenizer) -> None:
         self.special_tokens = dict(
@@ -65,7 +66,7 @@ class BaseTrainTemplate:
         return fmt.format(content=utterance["content"], **self.special_tokens), role == "assistant"
         
     def join_utterances(self, utterances: List[str]) -> str:
-        return "\n".join(utterances)
+        return self.TURN_SEPERATOR.join(utterances)
 
     def apply_chat_template(self, conversations):
         return self.join_utterances([self.handle_utterance(utt, i)[0] for i, utt in enumerate(conversations)])
@@ -112,13 +113,13 @@ class GemmaTemplate(BaseTrainTemplate):
         "google/gemma-7b-it"
     ]
     # for the first user message without system instruction (\eg Llama-2)
-    INITIAL_USER_FORMAT = "<bos><start_of_turn>user\n{content}<end_of_turn>\n"
+    INITIAL_USER_FORMAT = "<bos><start_of_turn>user\n{content}<end_of_turn>"
 
-    SYSTEM_FORMAT = "<bos><start_of_turn>system{content}<end_of_turn>\n\n"
-    USER_FORMAT = "<start_of_turn>user\n{content}<end_of_turn>\n"
-    ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<end_of_turn>\n"
-    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<end_of_turn>\n"
-    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<end_of_turn>\n"
+    SYSTEM_FORMAT = "<bos><start_of_turn>system{content}<end_of_turn>\n"
+    USER_FORMAT = "<start_of_turn>user\n{content}<end_of_turn>"
+    ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<end_of_turn>"
+    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<end_of_turn>"
+    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<end_of_turn>"
 
 @train_templates.register("gemma-vision")
 class VisionGemmaTemplate(BaseTrainTemplate):
@@ -130,3 +131,38 @@ class VisionGemmaTemplate(BaseTrainTemplate):
     ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<end_of_turn>\n"
     FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<end_of_turn>\n"
     FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<end_of_turn>\n"
+
+
+if __name__ == "__main__":
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained("beomi/gemma-ko-2b")
+    t = GemmaTemplate(tokenizer)
+    convs = [
+        {
+            "role": "user",
+            "content": "Hi"
+        },
+        {
+            "role": "assistant",
+            "content": "Hi"
+        },
+        {
+            "role": "user",
+            "content": "Hi22"
+        },
+        {
+            "role": "assistant",
+            "content": "Hi22"
+        },
+    ]
+    out = t.apply_chat_template(convs)
+
+    print(out)
+
+    for i, c in enumerate(convs):
+        print(f"uttr #{i}")
+        uttr, _ = t.handle_utterance(c, i)
+        print(uttr)
+        ids = tokenizer.encode(uttr, add_special_tokens=False)
+        print(ids)
+        print(tokenizer.decode(ids, skip_special_tokens=False))

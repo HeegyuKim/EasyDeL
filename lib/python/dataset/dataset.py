@@ -20,7 +20,7 @@ class DatasetArguments():
 
     limit: Optional[int] = None
     eval_limit: Optional[int] = None
-    train_only_response = False
+    train_only_response: bool = False
     chat_template: Optional[str] = None
     train_prompt_prefix: Optional[str] = None
     streaming: bool = False
@@ -52,7 +52,7 @@ class DatasetLoader:
         self.args = args
         self.tokenizer = tokenizer
         self.train_template = find_template(args.chat_template)(self.tokenizer)
-        self.dataset = self.prepare_dataset(args)
+        self.prepare_dataset(args)
     
     def encode_item(self, item):
         input_ids = self.tokenizer.encode(item["text"], add_special_tokens=True)
@@ -60,13 +60,13 @@ class DatasetLoader:
         return {
             "input_ids": input_ids,
             "attention_mask": [1] * len(input_ids),
-            "valid_loss": [1] * len(input_ids),
+            "labels": input_ids,
         }
     
     def encode_item_batch(self, batch):
         keys = list(batch.keys())
 
-        required_fields = ["input_ids", "attention_mask", "valid_loss"]
+        required_fields = ["input_ids", "attention_mask", "labels"]
 
         outputs = {k:[] for k in required_fields}
         batch_size = len(batch[keys[0]])
@@ -97,32 +97,33 @@ class DatasetLoader:
         outputs = dict(
             input_ids=[],
             attention_mask=[],
-            valid_loss=[]
+            labels=[]
         )
         accum_len = 0
 
         batch_len = self.args.max_length
         all_input_ids = items["input_ids"]
         all_attention_mask = items.get("attention_mask")
-        all_vals = items["valid_loss"]
+        all_labels = items["labels"]
 
-        batch_ids, batch_mask, batch_vals = [], [], []
+        batch_ids, batch_mask, batch_labels = [], [], []
 
-        for ids, mask, labels in zip(all_input_ids, all_attention_mask, all_vals):
+        for ids, mask, labels in zip(all_input_ids, all_attention_mask, all_labels):
             accum_len += len(ids)
 
             batch_ids.extend(ids)
             if all_attention_mask is not None:
                 batch_mask.extend(mask)
-            batch_vals.extend(labels)
+            batch_labels.extend(labels)
 
-            while accum_len > batch_len:
+            while accum_len >= batch_len:
                 outputs["input_ids"].append(batch_ids[:batch_len])
                 if all_attention_mask is not None:
                     outputs["attention_mask"].append(batch_mask[:batch_len])
-                outputs["valid_loss"].append(batch_vals[1:batch_len + 1])
+                # outputs["labels"].append(batch_labels[1:batch_len + 1])
+                outputs["labels"].append(batch_labels[:batch_len])
 
-                batch_ids, batch_vals = batch_ids[batch_len:], batch_vals[batch_len:]
+                batch_ids, batch_labels = batch_ids[batch_len:], batch_labels[batch_len:]
                 if all_attention_mask is not None:
                     batch_mask = batch_mask[batch_len:]
                 accum_len -= batch_len
@@ -136,26 +137,26 @@ class DatasetLoader:
         accum_len = 0
 
         batch_len = self.args.max_length
-        batch_ids, batch_mask, batch_vals = [], [], []
+        batch_ids, batch_mask, batch_labels = [], [], []
 
         for item in dataset:
             item = self.encode_item(item)
             ids = item['input_ids']
             mask = item.get('attention_mask')
-            vals = item['valid_loss']
+            labels = item['labels']
             accum_len += len(ids)
 
             batch_ids.extend(ids)
             if mask is not None:
                 batch_mask.extend(mask)
-            batch_vals.extend(vals)
+            batch_labels.extend(labels)
 
             while accum_len > batch_len:
                 batch = dict(
                     input_ids=batch_ids[:batch_len],
-                    valid_loss=batch_vals[1:batch_len + 1]
+                    labels=batch_labels[:batch_len]
                 )
-                batch_ids, batch_vals = batch_ids[batch_len:], batch_vals[batch_len:]
+                batch_ids, batch_labels = batch_ids[batch_len:], batch_labels[batch_len:]
                 if mask:
                     batch["attention_mask"] = batch_mask[:batch_len]
                     batch_mask = batch_mask[batch_len:]
@@ -188,7 +189,7 @@ class DatasetLoader:
                 kwargs["load_from_cache_file"] = args.load_from_cache_file
                 kwargs["keep_in_memory"] = args.keep_in_memory
 
-                required_fields = ["input_ids", "attention_mask", "valid_loss"]
+                required_fields = ["input_ids", "attention_mask", "labels"]
                 cols = set(ds.column_names) - set(required_fields)
                 ds = ds.map(
                     self.encode_item,
@@ -236,7 +237,7 @@ class ChatDatasetLoader(DatasetLoader):
     
     def encode_item(self, item):
         conversation = item["conversations"]
-        concat_inputs, concat_labels, concat_vals = [], [], []
+        concat_inputs, concat_labels = [], []
         
         if self.args.train_prompt_prefix:
             ids = self.tokenizer.encode(self.args.train_prompt_prefix, add_special_tokens=False)
@@ -245,19 +246,21 @@ class ChatDatasetLoader(DatasetLoader):
 
         for i, uttr in enumerate(conversation):
             content, trainable = self.train_template.handle_utterance(uttr, i)
+            if i + 1 != len(conversation):
+                content += self.train_template.TURN_SEPERATOR
 
             input_ids = self.tokenizer.encode(content, add_special_tokens=False)
 
             if not self.args.train_only_response or trainable:
-                vals = [1] * len(input_ids)
+                labels = input_ids
             else:
-                vals = [0] * len(input_ids)
+                labels = [-100] * len(input_ids)
 
             concat_inputs.extend(input_ids)
-            concat_vals.extend(vals)
+            concat_labels.extend(labels)
 
         return {
             "input_ids": concat_inputs,
             "attention_mask": [1] * len(concat_inputs),
-            "valid_loss": concat_vals,
+            "labels": concat_labels,
         }

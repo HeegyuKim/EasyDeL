@@ -1,10 +1,4 @@
-
-# ../../script/koopenchat/finetune_gemma.sh 7b "maywell/koVast" 2
-
-# ../../script/koopenchat/finetune_gemma.sh 2b "maywell/koVast" 4
-# ../../script/koopenchat/finetune_gemma.sh 2b "heegyu/KoCommercial-Dataset" 4
-# ../../script/koopenchat/finetune_gemma.sh 2b "squarelike/OpenOrca-gugugo-ko" 4
-# ../../script/koopenchat/finetune_gemma.sh 2b 4
+# ../../script/koopenchat/lima.sh 2b 4
 
 size="${1:-2b}"
 datasets="changpt/ko-lima-vicuna"
@@ -13,8 +7,9 @@ batch_size="${2:-1}"
 echo "Batch size: $batch_size"
 
 export WANDB_PROJECT=ko-openchat-$size
+lr=1e-4
 model="beomi/gemma-ko-$size"
-run_name="gemma-$size-$datasets"
+run_name="gemma-$size-$lr-$datasets"
 
 
 python finetune.py \
@@ -23,12 +18,12 @@ python finetune.py \
     --run_name "$run_name" \
     --model_id "$model" \
     --datasets "$datasets" \
-    --epoch 10 \
+    --epoch 50 \
     --packing \
-    --max_length 2048 \
-    --load_from_cache_file \
+    --max_length 1024 \
     --step_batch_size $batch_size \
-    --total_batch_size 128 \
+    --warmup_steps 128 \
+    --total_batch_size 32 \
     --chat_template gemma \
-    --save_epochs 2 \
-    --lr 2e-5
+    --save_epochs 10 \
+    --lr $lr
