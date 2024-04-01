@@ -14,6 +14,7 @@ echo "Batch size: $batch_size"
 export WANDB_PROJECT=ko-openchat-$size
 model="beomi/gemma-ko-$size"
 run_name="gemma-$size-$datasets"
+lr=2e-5
 
 
 python finetune.py \
@@ -27,7 +28,7 @@ python finetune.py \
     --max_length 2048 \
     --load_from_cache_file \
     --step_batch_size $batch_size \
-    --total_batch_size 128 \
+    --total_batch_size 32 \
     --chat_template gemma \
     --save_epochs 1 \
-    --lr 2e-5
+    --lr $lr

@@ -7,9 +7,10 @@ batch_size="${2:-1}"
 echo "Batch size: $batch_size"
 
 export WANDB_PROJECT=ko-openchat-$size
-lr=1e-4
-model="beomi/gemma-ko-$size"
-run_name="gemma-$size-$lr-$datasets"
+lr=2e-5
+# model="beomi/gemma-ko-$size"
+model="google/gemma-$size-it"
+run_name="gemma-$size-it-$lr-$datasets"
 
 
 python finetune.py \
@@ -18,12 +19,11 @@ python finetune.py \
     --run_name "$run_name" \
     --model_id "$model" \
     --datasets "$datasets" \
-    --epoch 50 \
+    --epoch 10 \
     --packing \
     --max_length 1024 \
     --step_batch_size $batch_size \
-    --warmup_steps 128 \
     --total_batch_size 32 \
     --chat_template gemma \
-    --save_epochs 10 \
+    --save_epochs 5 \
     --lr $lr

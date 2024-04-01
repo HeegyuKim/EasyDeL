@@ -113,24 +113,24 @@ class GemmaTemplate(BaseTrainTemplate):
         "google/gemma-7b-it"
     ]
     # for the first user message without system instruction (\eg Llama-2)
-    INITIAL_USER_FORMAT = "<bos><start_of_turn>user\n{content}<end_of_turn>"
+    INITIAL_USER_FORMAT = "<bos><start_of_turn>user\n{content}<eos>"
 
-    SYSTEM_FORMAT = "<bos><start_of_turn>system{content}<end_of_turn>\n"
-    USER_FORMAT = "<start_of_turn>user\n{content}<end_of_turn>"
-    ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<end_of_turn>"
-    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<end_of_turn>"
-    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<end_of_turn>"
+    SYSTEM_FORMAT = "<bos><start_of_turn>system{content}<eos>\n"
+    USER_FORMAT = "<start_of_turn>user\n{content}<eos>"
+    ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<eos>"
+    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<eos>"
+    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<eos>"
 
 @train_templates.register("gemma-vision")
 class VisionGemmaTemplate(BaseTrainTemplate):
     # for the first user message without system instruction (\eg Llama-2)
-    INITIAL_USER_FORMAT = "<start_of_turn>user\n{content}<end_of_turn>\n"
+    INITIAL_USER_FORMAT = "<start_of_turn>user\n{content}<eos>\n"
 
-    SYSTEM_FORMAT = "<start_of_turn>system{content}<end_of_turn>\n\n"
-    USER_FORMAT = "<start_of_turn>user\n{content}<end_of_turn>\n"
-    ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<end_of_turn>\n"
-    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<end_of_turn>\n"
-    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<end_of_turn>\n"
+    SYSTEM_FORMAT = "<start_of_turn>system{content}<eos>\n\n"
+    USER_FORMAT = "<start_of_turn>user\n{content}<eos>\n"
+    ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<eos>\n"
+    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<eos>\n"
+    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<eos>\n"
 
 
 if __name__ == "__main__":

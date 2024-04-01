@@ -37,7 +37,8 @@ def main(run_name: str,
          total_batch_size: int = 128,
          sharding: str = "fsdp", 
          epoch: int = 1,
-         warmup_steps: int = 0,
+         warmup_steps: Optional[int] = None,
+         warmup_ratio: Optional[float] = 0.1,
          max_steps: Optional[int] = None,
          save_epochs: Optional[int] = None,
          save_steps: Optional[int] = None,
@@ -81,6 +82,13 @@ def main(run_name: str,
             print("Cannot estimate dataset size in streaming.")
             save_steps = None
         
+    if warmup_ratio is not None:
+        if not streaming:
+            warmup_steps = int(len(dataset.train_dataset) * warmup_ratio)
+            print(f"set warmup_steps to {warmup_steps} (ratio: {warmup_ratio})")
+        else:
+            print("Warmup_ratio is ignored in streaming")
+
 
     if push_to_hub_id is None:
         push_to_hub_id = "heegyu/" + f"{model_id}-{run_name}".replace("/", "__")
