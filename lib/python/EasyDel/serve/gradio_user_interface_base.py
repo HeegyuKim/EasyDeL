@@ -20,6 +20,43 @@ class GradioUserInference:
         and sliders for advanced options.
         """
 
+        def resample_gradio(
+                prompt: str,
+                history: List[List[str]],
+                system_prompt: str | None,
+                mode: str,
+                max_sequence_length: int,
+                max_new_tokens: int,
+                max_compile_tokens: int,
+                greedy: bool,
+                temperature: float,
+                top_p: float,
+                top_k: int,
+                repetition_penalty: float
+        ):
+            if history:
+                prompt = history.pop()[0]
+
+                return sample_func(
+                    prompt=prompt,
+                    history=history,
+                    system_prompt=system_prompt,
+                    mode=mode,
+                    max_sequence_length=max_sequence_length,
+                    max_new_tokens=max_new_tokens,
+                    max_compile_tokens=max_compile_tokens,
+                    greedy=greedy,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                    repetition_penalty=repetition_penalty
+                )
+            else:
+                return (
+                    "no history",
+                    0
+                )
+            
         _max_length = max_sequence_length
         _max_new_tokens = max_new_tokens
         _max_compile_tokens = max_compile_tokens
@@ -41,6 +78,10 @@ class GradioUserInference:
                 submit = gr.Button(
                     value="Run",
                     variant="primary"
+                )
+                regenerate = gr.Button(
+                    value="Regenerate",
+                    variant="secondary"
                 )
                 stop = gr.Button(
                     value='Stop'
@@ -103,14 +144,14 @@ class GradioUserInference:
                     step=1
                 )
                 repetition_penalty = gr.Slider(
-                    value=1.2,
+                    value=1.0,
                     maximum=5,
                     minimum=0.1,
                     label='Repetition Penalty'
                 )
-                greedy = gr.Radio(
+                greedy = gr.Checkbox(
                     value=True,
-                    label="Do Sample or Greedy Generation"
+                    label="Do Sample or Greedy Generation",
                 )
 
                 mode = gr.Dropdown(
@@ -139,6 +180,9 @@ class GradioUserInference:
         sub_event = submit.click(
             fn=sample_func, inputs=inputs, outputs=[prompt, history]
         )
+        reg_event = regenerate.click(
+            fn=resample_gradio, inputs=inputs, outputs=[prompt, history]
+        )
         txt_event = prompt.submit(
             fn=sample_func, inputs=inputs, outputs=[prompt, history]
         )
@@ -146,9 +190,9 @@ class GradioUserInference:
             fn=None,
             inputs=None,
             outputs=None,
-            cancels=[txt_event, sub_event]
+            cancels=[txt_event, sub_event, reg_event]
         )
-
+        
     def sample_gradio(
             self,
             prompt: str,

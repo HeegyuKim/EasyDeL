@@ -5,13 +5,13 @@ from absl import flags
 from lib.python.EasyDel import JAXServer, JAXServerConfig
 import jax
 from fjformer import get_dtype
-from lib.python.EasyDel.serve.prompters import GemmaPrompter, Llama2Prompter, OpenChatPrompter, PrometheusPrompter, ChatMLPrompter, ZephyrPrompter
+from lib.python.EasyDel.serve.prompters import GemmaPrompter, Llama2Prompter, OpenChatPrompter, PrometheusPrompter, ChatMLPrompter, ZephyrPrompter, HD42DotPrompter
 from lib.python.EasyDel.serve.prompters.base_prompter import BasePrompter
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(
     "prompter_type",
-    enum_values=("gemma", "llama", "openchat", "chatml", "zephyr", "qwen2", "prometheus"),
+    enum_values=("gemma", "llama", "openchat", "chatml", "zephyr", "qwen2", "prometheus", "42dot"),
     help="Prompter to be used to prompt the model",
     default="gemma"
 )
@@ -20,6 +20,12 @@ flags.DEFINE_string(
     default="google/gemma-7b-it",
     help="The pretrained model path in huggingface.co/models"
 )
+flags.DEFINE_string(
+    "tokenizer",
+    default="",
+    help="The pretrained model path in huggingface.co/models"
+)
+
 flags.DEFINE_integer(
     "max_compile_tokens",
     default=256,
@@ -97,6 +103,11 @@ flags.DEFINE_bool(
     default=True,
     help="whether to share gradio app"
 )
+flags.DEFINE_integer(
+    "eos_token_id",
+    default=-1,
+    help="eos token id"
+)
 
 
 def main(argv):
@@ -130,6 +141,7 @@ def main(argv):
         max_sequence_length=FLAGS.max_sequence_length,
         max_compile_tokens=FLAGS.max_sequence_length - FLAGS.prompt_length, # FLAGS.max_compile_tokens,
         # max_new_tokens=FLAGS.max_sequence_length,
+        eos_token_id=FLAGS.eos_token_id if FLAGS.eos_token_id != -1 else None,
         dtype=FLAGS.dtype,
         host="0.0.0.0",
         port=35020,
@@ -142,7 +154,8 @@ def main(argv):
         "chatml": ChatMLPrompter(),
         "zephyr": ZephyrPrompter(),
         "qwen2": ChatMLPrompter(),
-        "prometheus": PrometheusPrompter()
+        "prometheus": PrometheusPrompter(),
+        "42dot": HD42DotPrompter(),
     }
     prompter: BasePrompter = prompters[FLAGS.prompter_type]
 
@@ -171,6 +184,7 @@ def main(argv):
     server = JAXServerC.from_torch_pretrained(
         server_config=server_config,
         pretrained_model_name_or_path=FLAGS.pretrained_model_name_or_path,
+        tokenizer_path=FLAGS.tokenizer,
         device=jax.devices('cpu')[0],
         dtype=get_dtype(dtype=FLAGS.dtype),
         param_dtype=get_dtype(dtype=FLAGS.dtype),

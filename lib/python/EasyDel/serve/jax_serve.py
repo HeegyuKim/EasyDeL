@@ -433,6 +433,7 @@ class JAXServer(GradioUserInference):
             cls,
             server_config: JAXServerConfig,
             pretrained_model_name_or_path: str,
+            tokenizer_path: Optional[str] = None,
             device=jax.devices('cpu')[0],
             dtype: jax.numpy.dtype = jax.numpy.float32,
             param_dtype: jax.numpy.dtype = jax.numpy.float32,
@@ -457,9 +458,14 @@ class JAXServer(GradioUserInference):
             verbose: bool = True,
             **kwargs
     ):
+        if "@" in pretrained_model_name_or_path:
+            pretrained_model_name_or_path, revision = pretrained_model_name_or_path.split("@", 1)
+        else:
+            revision = None
 
         model, params = AutoEasyDelModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=pretrained_model_name_or_path,
+            revision=revision,
             device=device,
             dtype=dtype,
             param_dtype=param_dtype,
@@ -485,7 +491,7 @@ class JAXServer(GradioUserInference):
         return cls.from_parameters(
             model=model,
             config_model=model.config,
-            tokenizer=transformers.AutoTokenizer.from_pretrained(pretrained_model_name_or_path),
+            tokenizer=transformers.AutoTokenizer.from_pretrained(tokenizer_path or pretrained_model_name_or_path, revision=revision),
             params=params,
             server_config=server_config,
             verbose=verbose,
@@ -888,6 +894,8 @@ class JAXServer(GradioUserInference):
             self.tokenizer.decode(predicted_token[0], skip_special_tokens=True),
             num_generated_tokens
         )
+        print("Input: ", string)
+        print("Output: ", self.tokenizer.decode(predicted_token[0], skip_special_tokens=False))
 
         # predicted_token = predicted_token[
         #     predicted_token != self.tokenizer.pad_token_id if (

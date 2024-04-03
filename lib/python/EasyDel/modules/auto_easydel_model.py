@@ -288,6 +288,7 @@ class AutoEasyDelModelForCausalLM:
     def from_pretrained(
             cls,
             pretrained_model_name_or_path: str,
+            revision: Optional[str] = None,
             device=jax.devices('cpu')[0],
             dtype: jax.numpy.dtype = jax.numpy.float32,
             param_dtype: jax.numpy.dtype = jax.numpy.float32,
@@ -341,13 +342,13 @@ class AutoEasyDelModelForCausalLM:
         """
 
         logger.debug(f"Downloading model config from {pretrained_model_name_or_path}")
-        config = AutoConfig.from_pretrained(pretrained_model_name_or_path)
+        config = AutoConfig.from_pretrained(pretrained_model_name_or_path, revision=revision)
         model_type = config.model_type
 
         cfg, module, trf = get_modules_by_type(model_type)
 
         logger.debug(f"Downloading model weights from {pretrained_model_name_or_path}")
-        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path, **kwargs)
+        model = AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path, revision=revision, **kwargs)
         hf_model_class = model.__class__
 
         if adapter_kwargs is not None:
@@ -358,7 +359,7 @@ class AutoEasyDelModelForCausalLM:
             )
             model = model.merge_and_unload()
 
-        cfg = cfg.from_pretrained(pretrained_model_name_or_path)
+        cfg = cfg.from_pretrained(pretrained_model_name_or_path, revision=revision)
         state_dict = model.state_dict()
         logger.debug(f"adding model basic EasyDeL configurations.")
         if hasattr(cfg, 'add_jax_args'):
