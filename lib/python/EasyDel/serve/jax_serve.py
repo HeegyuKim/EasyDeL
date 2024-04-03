@@ -572,6 +572,53 @@ class JAXServer(GradioUserInference):
             server.compile(verbose=verbose)
         return server
 
+    @classmethod
+    def from_huggingface(
+            cls,
+            pretrained_model_name_or_path: str,
+            server_config: JAXServerConfig = None,
+            add_params_field: bool = True,
+            do_memory_log: bool = False,
+            verbose: bool = True,
+            fully_sharded_data_parallel=True
+    ):  
+        with jax.default_device(jax.devices("cpu")[0]):
+            model = transformers.FlaxAutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path, from_pt=True)
+            tokenizer = transformers.AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+
+        server = cls(server_config=server_config)
+
+        from ..partitioning import get_partition_rules
+
+        with server.mesh:
+            logging.info(
+                "matching partition rules"
+            )
+            partition_specs = match_partition_rules(params=params, rules=get_partition_rules(model.config, fully_sharded_data_parallel))
+            shard_fns, _ = make_shard_and_gather_fns(partition_specs, get_dtype(server.server_config.dtype))
+            logging.info(
+                "sharding parameters across all of the chosen backend(tpu/gpu/cpu)s"
+            )
+            params = flax.traverse_util.flatten_dict(params)
+            shard_fns = flax.traverse_util.flatten_dict(shard_fns)
+            pbar = tqdm.tqdm(params.keys())
+            for key in pbar:
+                key = tuple(key)
+                params[key] = shard_fns[key](params[key])
+                if do_memory_log:
+                    pbar.write(server.get_memory())
+                pbar.set_description("Sharding Params")
+            server.params = flax.traverse_util.unflatten_dict(params)
+            server.params = {"params": server.params} if add_params_field else server.params
+        server.partition_specs = {"params": partition_specs} if add_params_field else partition_specs
+        logging.info(
+            "configuring generate functions for the server"
+        )
+        server.configure_generate_functions(model, tokenizer)
+        if server.server_config.pre_compile:
+            server.compile(verbose=verbose)
+        return server
+    
     def compile(self, verbose: bool = True) -> bool:
         """
         The compile function is used to compile the model for use in inference.

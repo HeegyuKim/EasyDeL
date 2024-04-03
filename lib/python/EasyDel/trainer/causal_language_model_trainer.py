@@ -552,7 +552,7 @@ class CausalLanguageModelTrainer(BaseTrainer):
         
             repo_id = self.arguments.push_to_hub_id
             revision_name = f"steps-{state.step}"
-            api = HfApi()
+            api = HfApi(token=True)
             if "/" not in repo_id:
                 name = api.whoami()['name']
                 repo_id = f"{name}/{repo_id}"

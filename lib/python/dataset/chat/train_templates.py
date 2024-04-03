@@ -24,12 +24,12 @@ class BaseTrainTemplate:
     # for the first user message without system instruction (\eg Llama-2)
     INITIAL_USER_FORMAT = None
 
-    SYSTEM_FORMAT = "<|im_start|>system\n{content}{eos}\n"
-    USER_FORMAT = "<|im_start|>user\n{content}{eos}\n"
-    ASSISTANT_FORMAT = "<|im_start|>assistant\n{content}{eos}\n"
+    SYSTEM_FORMAT = "<|im_start|>system\n{content}{eos}"
+    USER_FORMAT = "<|im_start|>user\n{content}{eos}"
+    ASSISTANT_FORMAT = "<|im_start|>assistant\n{content}{eos}"
 
-    FUNCTION_CALLING_FORMAT = "<|im_start|>function_calling\n{content}{eos}\n"
-    FUNCTION_RESPONSE_FORMAT = "<|im_start|>function_response\n{content}{eos}\n"
+    FUNCTION_CALLING_FORMAT = "<|im_start|>function_calling\n{content}{eos}"
+    FUNCTION_RESPONSE_FORMAT = "<|im_start|>function_response\n{content}{eos}"
 
     TURN_SEPERATOR = "\n"
 
@@ -63,7 +63,12 @@ class BaseTrainTemplate:
         else:
             raise ValueError(f"Unknown role: {role}")
         
-        return fmt.format(content=utterance["content"], **self.special_tokens), role == "assistant"
+        if "trainable" in utterance and utterance["trainable"] is not None:
+            trainable = utterance["trainable"]
+        else:
+            trainable = role == "assistant"
+
+        return fmt.format(content=utterance["content"], **self.special_tokens), trainable
         
     def join_utterances(self, utterances: List[str]) -> str:
         return self.TURN_SEPERATOR.join(utterances)
@@ -76,18 +81,25 @@ class BaseTrainTemplate:
 @train_templates.register("tinyllama")
 class TinyLlamaTemplate(BaseTrainTemplate):
     SUPPORTED_MODELS = [
-        "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+        "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
     ]
     # for the first user message without system instruction (\eg Llama-2)
     INITIAL_USER_FORMAT = None
 
-    SYSTEM_FORMAT = "<|system|>\n{content}{eos}\n"
-    USER_FORMAT = "<|user|>\n{content}{eos}\n"
-    ASSISTANT_FORMAT = "<|assistant|>\n{content}{eos}\n"
+    SYSTEM_FORMAT = "<|system|>\n{content}{eos}"
+    USER_FORMAT = "<|user|>\n{content}{eos}"
+    ASSISTANT_FORMAT = "<|assistant|>\n{content}{eos}"
 
-    FUNCTION_CALLING_FORMAT = "<|function-call|>\n{content}{eos}\n"
-    FUNCTION_RESPONSE_FORMAT = "<|function-response|>\n{content}{eos}\n"
+    FUNCTION_CALLING_FORMAT = "<|function-call|>\n{content}{eos}"
+    FUNCTION_RESPONSE_FORMAT = "<|function-response|>\n{content}{eos}"
 
+
+@train_templates.register("zephyr")
+class ZephyrTemplate(TinyLlamaTemplate):
+    SUPPORTED_MODELS = [
+        "HuggingFaceH4/mistral-7b-sft-beta",
+        "HuggingFaceH4/zephyr-7b-beta"
+    ]
 
 @train_templates.register("42dot")
 class HD42DotTemplate(BaseTrainTemplate):
@@ -115,11 +127,11 @@ class GemmaTemplate(BaseTrainTemplate):
     # for the first user message without system instruction (\eg Llama-2)
     INITIAL_USER_FORMAT = "<bos><start_of_turn>user\n{content}<eos>"
 
-    SYSTEM_FORMAT = "<bos><start_of_turn>system{content}<eos>\n"
-    USER_FORMAT = "<start_of_turn>user\n{content}<eos>"
-    ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<eos>"
-    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<eos>"
-    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<eos>"
+    SYSTEM_FORMAT = "<bos><start_of_turn>system{content}<end_of_turn>\n"
+    USER_FORMAT = "<start_of_turn>user\n{content}<end_of_turn>"
+    ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<end_of_turn>"
+    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<end_of_turn>"
+    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<end_of_turn>"
 
 @train_templates.register("gemma-vision")
 class VisionGemmaTemplate(BaseTrainTemplate):

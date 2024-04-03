@@ -84,7 +84,10 @@ def main(run_name: str,
         
     if warmup_ratio is not None:
         if not streaming:
-            warmup_steps = int(len(dataset.train_dataset) * warmup_ratio)
+            if max_steps:
+                warmup_steps = int(max_steps * warmup_ratio)
+            else:
+                warmup_steps = int(epoch * len(dataset.train_dataset) * warmup_ratio // step_batch_size)
             print(f"set warmup_steps to {warmup_steps} (ratio: {warmup_ratio})")
         else:
             print("Warmup_ratio is ignored in streaming")

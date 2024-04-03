@@ -3,12 +3,12 @@ from .dataset import ChatDatasetLoader, DatasetArguments
 from transformers import AutoTokenizer
 
 
-tokenizer = AutoTokenizer.from_pretrained("beomi/gemma-ko-2b")
+tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/mistral-7b-sft-beta")
 args = DatasetArguments(
-    dataset="changpt/ko-lima-vicuna",
+    dataset="heegyu/ultrafeedback_binarized_feedback:self-feedback",
     load_eval=False,
     train_only_response=True,
-    chat_template="gemma"
+    chat_template="zephyr"
 )
 loader = ChatDatasetLoader(args, tokenizer)
 

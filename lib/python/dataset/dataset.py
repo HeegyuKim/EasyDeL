@@ -55,7 +55,13 @@ class DatasetLoader:
         self.prepare_dataset(args)
     
     def encode_item(self, item):
-        input_ids = self.tokenizer.encode(item["text"], add_special_tokens=True)
+        input_ids = self.tokenizer.encode(
+            item["text"], 
+            add_special_tokens=True,
+            truncation=True,
+            max_length=self.args.max_length,
+            padding="max_length" if not self.args.packing else False
+            )
 
         return {
             "input_ids": input_ids,
@@ -258,6 +264,11 @@ class ChatDatasetLoader(DatasetLoader):
 
             concat_inputs.extend(input_ids)
             concat_labels.extend(labels)
+
+        if not self.args.packing:
+            if len(concat_inputs) < self.args.max_length:
+                concat_inputs += [self.tokenizer.pad_token_id] * (self.args.max_length - len(concat_inputs))
+                concat_labels += [-100] * (self.args.max_length - len(concat_labels))
 
         return {
             "input_ids": concat_inputs,
