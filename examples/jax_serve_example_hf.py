@@ -184,6 +184,11 @@ def main(argv):
     server = JAXServerC.from_huggingface(
         server_config=server_config,
         pretrained_model_name_or_path=FLAGS.pretrained_model_name_or_path,
+        device=jax.devices('cpu')[0],
+        dtype=get_dtype(dtype=FLAGS.dtype),
+        param_dtype=get_dtype(dtype=FLAGS.dtype),
+        precision=jax.lax.Precision("fastest"),
+        input_shape=(1, server_config.max_sequence_length),
     )
 
     # server.gradio_inference().launch(

@@ -9,6 +9,7 @@ import jax
 import msgpack
 import tqdm
 import transformers
+import transformers.modeling_flax_pytorch_utils
 import uvicorn
 from fastapi import FastAPI
 from fjformer import make_shard_and_gather_fns, match_partition_rules, with_sharding_constraint
@@ -577,14 +578,37 @@ class JAXServer(GradioUserInference):
             cls,
             pretrained_model_name_or_path: str,
             server_config: JAXServerConfig = None,
-            add_params_field: bool = True,
+            device=jax.devices('cpu')[0],
+            dtype: jax.numpy.dtype = jax.numpy.float32,
+            param_dtype: jax.numpy.dtype = jax.numpy.float32,
+            precision: Optional[jax.lax.Precision] = jax.lax.Precision("fastest"),
+            input_shape: Sequence[int] = (1, 1),
+            add_params_field: bool = False,
             do_memory_log: bool = False,
             verbose: bool = True,
             fully_sharded_data_parallel=True
     ):  
-        with jax.default_device(jax.devices("cpu")[0]):
-            model = transformers.FlaxAutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path, from_pt=True)
+        with jax.default_device(device):
+            config = transformers.AutoConfig.from_pretrained(pretrained_model_name_or_path)
+            flax_model = transformers.FlaxAutoModelForCausalLM.from_config(
+                config,
+                _do_init=True,
+                dtype=dtype,
+                # param_dtype=param_dtype,
+                # precision=precision,
+                input_shape=input_shape
+                )
+
             tokenizer = transformers.AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+
+            pt_model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path)
+            pt_state_dict = pt_model.state_dict()
+            params = transformers.modeling_flax_pytorch_utils.convert_pytorch_state_dict_to_flax(pt_state_dict, flax_model)
+
+            del pt_state_dict
+            del pt_model
+            import gc
+            gc.collect()
 
         server = cls(server_config=server_config)
 
@@ -594,7 +618,7 @@ class JAXServer(GradioUserInference):
             logging.info(
                 "matching partition rules"
             )
-            partition_specs = match_partition_rules(params=params, rules=get_partition_rules(model.config, fully_sharded_data_parallel))
+            partition_specs = match_partition_rules(params=params, rules=get_partition_rules(flax_model.config, fully_sharded_data_parallel))
             shard_fns, _ = make_shard_and_gather_fns(partition_specs, get_dtype(server.server_config.dtype))
             logging.info(
                 "sharding parameters across all of the chosen backend(tpu/gpu/cpu)s"
@@ -614,7 +638,7 @@ class JAXServer(GradioUserInference):
         logging.info(
             "configuring generate functions for the server"
         )
-        server.configure_generate_functions(model, tokenizer)
+        server.configure_generate_functions(flax_model, tokenizer)
         if server.server_config.pre_compile:
             server.compile(verbose=verbose)
         return server
