@@ -194,7 +194,7 @@ def main(run_name: str,
         tokenizer.pad_token = tokenizer.eos_token
 
     train_args = TrainArguments(
-        model_class=model.module_class,
+        model_class=model.__class__,
         configs_to_initialize_model_class=configs_to_initialize_model_class,
 
         model_name=run_name,

@@ -84,6 +84,12 @@ class PKUSafeRLHFKoBetter(ChatDataSource):
             "conversations": convs
         }
 
+@datasources("heegyu/ko-openchat-0404-test")
+class KoOpenChat0404Test(ChatDataSource):
+    def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
+        ds = load_dataset("heegyu/ko-openchat-0404-test", split=split, streaming=args.streaming)
+        return ds
+    
 
 @datasources("changpt/ko-lima-vicuna")
 class KoLimaVicuna(VicunaChatDataSource):

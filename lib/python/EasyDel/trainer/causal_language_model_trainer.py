@@ -17,7 +17,9 @@ from fjformer.func.loss_func import (
     get_loss_normalizing_factor_and_weights,
     compute_weighted_cross_entropy_and_accuracy,
 )
+import transformers.modeling_flax_pytorch_utils
 import wandb
+import transformers
 from huggingface_hub import HfApi
 
 import jax
@@ -41,7 +43,7 @@ from fjformer import (
 from ..etils.errors import EasyDelTimerError
 from typing import Any, Optional, Tuple, Callable, Mapping
 from ..etils.easystate import EasyDelState
-from .base_trainer import BaseTrainer, TrainerConfigureFunctionFuncOutput
+from .base_trainer import BaseTrainer, TrainerConfigureFunctionFuncOutput, TrainerConfigureModelFuncOutput
 
 
 def create_casual_language_model_train_step(
@@ -85,7 +87,7 @@ def create_casual_language_model_train_step(
             )
             # loss_weights is 1 unless the label is <= 0 or the attention mask is 0
             loss_weights = jnp.where(
-                (batch["attention_mask"][:, 1:] != 0) & (labels > 0), 1, 0
+                (batch["attention_mask"][:, 1:] != 0) & (labels >= 0), 1, 0
             )
             lnf, weights = get_loss_normalizing_factor_and_weights(
                 loss_normalizing_factor,
@@ -436,11 +438,11 @@ class CausalLanguageModelTrainer(BaseTrainer):
                             "pass as type FrozenDict in case of not getting UnExcepted Errors "
                         )
 
-                    M = sorted(flax.traverse_util.flatten_dict(model_parameters, sep=".").keys())
-                    S = sorted(flax.traverse_util.flatten_dict(shard_fns.params, sep=".").keys())
-                    print("!@I$(@*(%*@()$)) ===>>>> ", len(M), len(S))
-                    for i in range(max(len(M), len(S))):
-                        print(M[i], "\t\t|||||\t\t",S[i])
+                    # M = sorted(flax.traverse_util.flatten_dict(model_parameters, sep=".").keys())
+                    # S = sorted(flax.traverse_util.flatten_dict(shard_fns.params, sep=".").keys())
+                    # print("!@I$(@*(%*@()$)) ===>>>> ", len(M), len(S))
+                    # for i in range(max(len(M), len(S))):
+                    #     print(M[i], "\t\t|||||\t\t",S[i])
 
                     model_parameters = model_parameters if not self.arguments.do_shard_fns else jax.tree_util.tree_map(
                         lambda f, x: f(x),
@@ -902,11 +904,20 @@ class CausalLanguageModelTrainer(BaseTrainer):
 
 class HfCausalLanguageModelTrainer(CausalLanguageModelTrainer):
 
-    def __init__(self, arguments: TrainArguments, dataset_train: Dataset, dataset_eval: Dataset = None, finetune: bool = True, checkpoint_path: str | os.PathLike = None, _do_init_fns: bool = True,
-                 model=None, tokenizer=None):
-        super().__init__(arguments, dataset_train, dataset_eval, finetune, checkpoint_path, _do_init_fns)
-        self.model = model
-        self.tokenizer = tokenizer
+    # def __init__(self, arguments: TrainArguments, dataset_train: Dataset, dataset_eval: Dataset = None, finetune: bool = True, checkpoint_path: str | os.PathLike = None, _do_init_fns: bool = True,
+    #              model=None, tokenizer=None):
+    #     super().__init__(arguments, dataset_train, dataset_eval, finetune, checkpoint_path, _do_init_fns)
+    #     self.model = model
+    #     self.tokenizer = tokenizer
+
+    def configure_model(self) -> TrainerConfigureModelFuncOutput:
+        tx, scheduler = self.arguments.get_optimizer_and_scheduler(self.max_training_steps)
+        return TrainerConfigureModelFuncOutput(
+            model=self.model,
+            tx=tx,
+            scheduler=scheduler,
+            config=self.model.config
+        )
     
     def _push_to_hub(self, state: EasyDelState, checkpoint_path: str):
         if not self.arguments.push_to_hub:
@@ -915,8 +926,14 @@ class HfCausalLanguageModelTrainer(CausalLanguageModelTrainer):
         with jax.default_device(jax.devices("cpu")[0]), \
             tempfile.TemporaryDirectory() as folder_path:
             model = self.model
+            pt_model = transformers.AutoModelForCausalLM.from_config(model.config)
+            transformers.modeling_flax_pytorch_utils.load_flax_weights_in_pytorch_model(
+                pt_model, state.params["params"]
+            )
+
             print("Saving huggingface model to local disk")
-            model.save_pretrained(folder_path)
+            pt_model = pt_model.bfloat16()
+            pt_model.save_pretrained(folder_path)
             self.tokenizer.save_pretrained(folder_path)
         
             repo_id = self.arguments.push_to_hub_id

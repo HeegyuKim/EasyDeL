@@ -449,6 +449,9 @@ class FlaxGemmaPreTrainedModel(FlaxPreTrainedModel):
 
         random_params = self.module.init(rngs, input_ids, attention_mask, position_ids, return_dict=False)["params"]
 
+        # if self.config.tie_word_embeddings:
+        #     random_params.pop("lm_head")
+
         if params is not None:
             random_params = flatten_dict(unfreeze(random_params))
             params = flatten_dict(unfreeze(params))

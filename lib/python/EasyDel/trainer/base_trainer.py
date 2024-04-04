@@ -56,7 +56,9 @@ class BaseTrainer:
             dataset_eval: Dataset = None,
             finetune: bool = True,
             checkpoint_path: Union[str, os.PathLike] = None,
-            _do_init_fns: bool = True
+            _do_init_fns: bool = True,
+            model = None,
+            tokenizer = None,
     ):
         """
         The __init__ function is called when the class is instantiated.
@@ -92,7 +94,8 @@ class BaseTrainer:
         self.dataset_eval = dataset_eval
 
         # Model Related
-        self.model = getattr(self, "model", None)
+        self.model = getattr(self, "model", None) or model
+        self.tokenizer = getattr(self, "tokenizer", None) or tokenizer
         self.config = getattr(self, "config", None)
         self.scheduler = getattr(self, "scheduler", None)
         self.tx = getattr(self, "tx", None)

@@ -62,11 +62,12 @@ class DatasetLoader:
             max_length=self.args.max_length,
             padding="max_length" if not self.args.packing else False
             )
+        labels = [x if x != self.tokenizer.pad_token_id else -100 for x in input_ids]
 
         return {
             "input_ids": input_ids,
             "attention_mask": [1] * len(input_ids),
-            "labels": input_ids,
+            "labels": labels,
         }
     
     def encode_item_batch(self, batch):

@@ -77,6 +77,9 @@ class BaseTrainTemplate:
         return self.join_utterances([self.handle_utterance(utt, i)[0] for i, utt in enumerate(conversations)])
         
         
+@train_templates.register("default:bos")
+class BaseBOSTrainTemplate(BaseTrainTemplate):
+    INITIAL_USER_FORMAT = "{bos}<|im_start|>user\n{content}{eos}"
 
 @train_templates.register("tinyllama")
 class TinyLlamaTemplate(BaseTrainTemplate):
@@ -125,14 +128,21 @@ class GemmaTemplate(BaseTrainTemplate):
         "google/gemma-7b-it"
     ]
     # for the first user message without system instruction (\eg Llama-2)
-    INITIAL_USER_FORMAT = "<bos><start_of_turn>user\n{content}<eos>"
+    INITIAL_USER_FORMAT = "<bos><start_of_turn>user\n{content}<end_of_turn>"
 
-    SYSTEM_FORMAT = "<bos><start_of_turn>system{content}<end_of_turn>\n"
+    SYSTEM_FORMAT = "<bos><start_of_turn>system{content}<end_of_turn>"
     USER_FORMAT = "<start_of_turn>user\n{content}<end_of_turn>"
     ASSISTANT_FORMAT = "<start_of_turn>model\n{content}<end_of_turn>"
-    FUNCTION_CALLING_FORMAT = "<start_of_turn>function-call\n{content}<end_of_turn>"
-    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>function-response\n{content}<end_of_turn>"
-
+    FUNCTION_CALLING_FORMAT = "<start_of_turn>model\n```function-call\n{content}```<end_of_turn>"
+    FUNCTION_RESPONSE_FORMAT = "<start_of_turn>user\n```function-response\n{content}```<end_of_turn>"
+    
+    def __init__(self, tokenizer) -> None:
+        super().__init__(tokenizer)
+        additional_tokens = ['<start_of_turn>','<end_of_turn>']
+        tokenizer.add_special_tokens({
+            'additional_special_tokens': additional_tokens
+            })
+        
 @train_templates.register("gemma-vision")
 class VisionGemmaTemplate(BaseTrainTemplate):
     # for the first user message without system instruction (\eg Llama-2)
@@ -148,7 +158,9 @@ class VisionGemmaTemplate(BaseTrainTemplate):
 if __name__ == "__main__":
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained("beomi/gemma-ko-2b")
+    print(tokenizer.encode("<end_of_turn>"))
     t = GemmaTemplate(tokenizer)
+    print(tokenizer.encode("<end_of_turn>"))
     convs = [
         {
             "role": "user",

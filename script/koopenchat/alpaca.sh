@@ -1,24 +1,16 @@
-# ../../script/koopenchat/lima.sh 2b 4
+# ../../script/koopenchat/alpaca.sh
 wandb offline
 
-size="${1:-2b}"
-datasets="changpt/ko-lima-vicuna"
-batch_size="${2:-4}"
+batch_size="${1:-32}"
 
 echo "Batch size: $batch_size"
 
 export WANDB_PROJECT=ko-openchat-$size
-lr=5e-5
-# model="beomi/gemma-ko-$size"
-# run_name="gemma-$size-it-$lr-$datasets"
-# model="google/gemma-$size-it"
-# model="HuggingFaceM4/tiny-random-LlamaForCausalLM"
-chat_template="gemma"
 
 model="Locutusque/TinyMistral-248M-v2.5"
-dataset="tatsu-lab/alpaca"
+datasets="tatsu-lab/alpaca"
 run_name="TinyMistral-248M-v2.5-alpaca"
-chat_template="default"
+chat_template="default:bos"
 lr=1e-4
 
 
@@ -28,11 +20,11 @@ python finetune_hf.py \
     --run_name "$run_name" \
     --model_id "$model" \
     --datasets "$datasets" \
-    --epoch 10 \
-    --packing \
-    --max_length 1024 \
+    --epoch 3 \
+    --packing False \
+    --max_length 512 \
     --step_batch_size $batch_size \
     --total_batch_size 32 \
     --chat_template $chat_template \
-    --save_epochs 5 \
+    --save_epochs 1 \
     --lr $lr
