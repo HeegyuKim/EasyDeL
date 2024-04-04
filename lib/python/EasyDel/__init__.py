@@ -144,7 +144,7 @@ from .trainer import (
     create_vision_casual_language_model_evaluation_step as create_vision_casual_language_model_evaluation_step,
     VisionCausalLanguageModelTrainer as VisionCausalLanguageModelTrainer,
     VisionCausalLanguageModelStepOutput as VisionCausalLanguageModelStepOutput,
-    CausalLanguageModelPretrainer
+    CausalLanguageModelPretrainer, HfCausalLanguageModelTrainer
 )
 
 from .reinforcement_learning import (
@@ -319,6 +319,7 @@ __all__ = (
 
     # Trainers
     "CausalLanguageModelTrainer",
+    "HfCausalLanguageModelTrainer",
     "EasyDeLXRapTureConfig",
     "TrainArguments",
     "create_casual_language_model_evaluation_step",

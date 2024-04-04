@@ -1,4 +1,5 @@
 # ../../script/koopenchat/lima.sh 2b 4
+wandb offline
 
 size="${1:-2b}"
 datasets="changpt/ko-lima-vicuna"
@@ -8,12 +9,14 @@ echo "Batch size: $batch_size"
 
 export WANDB_PROJECT=ko-openchat-$size
 lr=2e-5
-# model="beomi/gemma-ko-$size"
-model="google/gemma-$size-it"
+model="beomi/gemma-ko-$size"
+# model="google/gemma-$size-it"
+# model="HuggingFaceM4/tiny-random-LlamaForCausalLM"
+# model="Locutusque/TinyMistral-248M-v2.5"
 run_name="gemma-$size-it-$lr-$datasets"
 
 
-python finetune.py \
+python finetune_hf.py \
     --sharding mp \
     --load_eval False \
     --run_name "$run_name" \

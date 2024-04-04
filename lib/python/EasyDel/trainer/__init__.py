@@ -5,7 +5,8 @@ from .training_configurations import (
 from .causal_language_model_trainer import (
     create_casual_language_model_evaluation_step,
     create_casual_language_model_train_step,
-    CausalLanguageModelTrainer
+    CausalLanguageModelTrainer,
+    HfCausalLanguageModelTrainer
 )
 
 from .clm_pretrainer import (
@@ -29,5 +30,6 @@ __all__ = (
     "VisionCausalLanguageModelTrainer",
     "create_vision_casual_language_model_evaluation_step",
     "create_vision_casual_language_model_train_step",
-    "CausalLanguageModelPretrainer"
+    "CausalLanguageModelPretrainer",
+    "HfCausalLanguageModelTrainer"
 )
