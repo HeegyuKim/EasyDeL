@@ -577,6 +577,7 @@ class JAXServer(GradioUserInference):
     def from_huggingface(
             cls,
             pretrained_model_name_or_path: str,
+            tokenizer: Optional[str] = None,
             server_config: JAXServerConfig = None,
             device=jax.devices('cpu')[0],
             dtype: jax.numpy.dtype = jax.numpy.float32,
@@ -588,8 +589,18 @@ class JAXServer(GradioUserInference):
             verbose: bool = True,
             fully_sharded_data_parallel=True
     ):  
+        if "@" in pretrained_model_name_or_path:
+            pretrained_model_name_or_path, revision = pretrained_model_name_or_path.split("@", 1)
+        else:
+            revision = None
+        
+        if tokenizer is not None and "@" in tokenizer:
+            tokenizer, tokenizer_revision = tokenizer.split("@", 1)
+        else:
+            tokenizer_revision = None
+
         with jax.default_device(device):
-            config = transformers.AutoConfig.from_pretrained(pretrained_model_name_or_path)
+            config = transformers.AutoConfig.from_pretrained(pretrained_model_name_or_path, revision=revision)
             flax_model = transformers.FlaxAutoModelForCausalLM.from_config(
                 config,
                 _do_init=True,
@@ -599,9 +610,9 @@ class JAXServer(GradioUserInference):
                 input_shape=input_shape
                 )
 
-            tokenizer = transformers.AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+            tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer or pretrained_model_name_or_path, revision=tokenizer_revision)
 
-            pt_model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path)
+            pt_model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path, revision=revision)
             pt_state_dict = pt_model.state_dict()
             params = transformers.modeling_flax_pytorch_utils.convert_pytorch_state_dict_to_flax(pt_state_dict, flax_model)
 
