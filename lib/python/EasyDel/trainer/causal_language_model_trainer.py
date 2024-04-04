@@ -9,6 +9,7 @@ import tempfile
 
 
 import IPython.display
+from datasets import Dataset
 import termcolor
 from fjformer.func.loss_func import (
     cross_entropy_loss_and_accuracy,
@@ -23,6 +24,8 @@ import jax
 from jax.experimental.multihost_utils import sync_global_devices
 import flax
 from tqdm import tqdm
+
+from .training_configurations import TrainArguments
 from ..utils.utils import prefix_print
 from ..transform import easystate_to_huggingface_model
 from ..smi import initialise_tracking, get_mem, get_capacity_matrix
@@ -105,7 +108,6 @@ def create_casual_language_model_train_step(
                 loss_normalizing_factor=lnf,
             )
             return loss, accuracy
-
         grad_fn = jax.value_and_grad(calculate_loss, has_aux=True)
         (loss__, accuracy__), grad = grad_fn(state.params)
         state = state.apply_gradients(grads=grad)
@@ -433,6 +435,12 @@ class CausalLanguageModelTrainer(BaseTrainer):
                             "Model Parameters should be like FrozenDict({'params': params}) make sure to "
                             "pass as type FrozenDict in case of not getting UnExcepted Errors "
                         )
+
+                    M = sorted(flax.traverse_util.flatten_dict(model_parameters, sep=".").keys())
+                    S = sorted(flax.traverse_util.flatten_dict(shard_fns.params, sep=".").keys())
+                    print("!@I$(@*(%*@()$)) ===>>>> ", len(M), len(S))
+                    for i in range(max(len(M), len(S))):
+                        print(M[i], "\t\t|||||\t\t",S[i])
 
                     model_parameters = model_parameters if not self.arguments.do_shard_fns else jax.tree_util.tree_map(
                         lambda f, x: f(x),
@@ -890,3 +898,39 @@ class CausalLanguageModelTrainer(BaseTrainer):
                     color="cyan",
                     force_color=True
                 )
+
+
+class HfCausalLanguageModelTrainer(CausalLanguageModelTrainer):
+
+    def __init__(self, arguments: TrainArguments, dataset_train: Dataset, dataset_eval: Dataset = None, finetune: bool = True, checkpoint_path: str | os.PathLike = None, _do_init_fns: bool = True,
+                 model=None, tokenizer=None):
+        super().__init__(arguments, dataset_train, dataset_eval, finetune, checkpoint_path, _do_init_fns)
+        self.model = model
+        self.tokenizer = tokenizer
+    
+    def _push_to_hub(self, state: EasyDelState, checkpoint_path: str):
+        if not self.arguments.push_to_hub:
+            return
+
+        with jax.default_device(jax.devices("cpu")[0]), \
+            tempfile.TemporaryDirectory() as folder_path:
+            model = self.model
+            print("Saving huggingface model to local disk")
+            model.save_pretrained(folder_path)
+            self.tokenizer.save_pretrained(folder_path)
+        
+            repo_id = self.arguments.push_to_hub_id
+            revision_name = f"steps-{state.step}"
+            api = HfApi()
+            if "/" not in repo_id:
+                name = api.whoami()['name']
+                repo_id = f"{name}/{repo_id}"
+
+            print(f"Start uploading to huggingface model hub {repo_id}:{revision_name}")
+            api.create_repo(repo_id, private=True, repo_type="model", exist_ok=True)
+            api.create_branch(repo_id, branch=revision_name)
+            api.upload_folder(
+                repo_id=repo_id,
+                folder_path=folder_path,
+                revision=revision_name,
+            )
