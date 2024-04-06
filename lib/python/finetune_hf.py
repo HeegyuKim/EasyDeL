@@ -131,6 +131,8 @@ def main(run_name: str,
          ):
     run_name = run_name.replace("/", "__")
     sharding_axis_dims = SHARDING_AXIES[sharding]
+    is_fsdp = sharding == "fsdp"
+
     pretrained_model_name_or_path = model_id
     assert total_batch_size % step_batch_size == 0, "total_batch_size must be divisible by step_batch_size"
 
@@ -213,8 +215,8 @@ def main(run_name: str,
         gradient_accumulation_steps=total_batch_size // step_batch_size,
         max_sequence_length=max_length,
         gradient_checkpointing=EasyDelGradientCheckPointers.NOTHING_SAVEABLE,
-        custom_rule=get_partition_rules(model.config, False),
-        fully_sharded_data_parallel=False,
+        custom_rule=get_partition_rules(model.config, is_fsdp),
+        fully_sharded_data_parallel=is_fsdp,
         do_shard_fns=False,
         sharding_array=sharding_axis_dims,
         use_pjit_attention_force=False,
@@ -250,7 +252,7 @@ def main(run_name: str,
         dtype,
         model.config,
         model_parameters,
-        False
+        is_fsdp
     )
 
     output = trainer.train(

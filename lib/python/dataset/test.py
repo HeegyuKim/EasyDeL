@@ -3,13 +3,13 @@ from .dataset import ChatDatasetLoader, DatasetArguments
 from transformers import AutoTokenizer
 
 
-tokenizer = AutoTokenizer.from_pretrained("beomi/gemma-ko-7b")
+tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/mistral-7b-sft-beta")
 args = DatasetArguments(
-    dataset="heegyu/ko-openchat-0404-test",
+    dataset="heegyu/ultrafeedback_binarized_feedback:self-feedback",
     load_eval=False,
     train_only_response=True,
-    chat_template="gemma",
-    packing=True,
+    chat_template="default",
+    packing=False,
     limit=128
 )
 loader = ChatDatasetLoader(args, tokenizer)

@@ -9,9 +9,9 @@ export WANDB_PROJECT=ko-openchat-$size
 
 model="beomi/gemma-ko-7b"
 datasets="heegyu/ko-openchat-0404-test"
-run_name="gemma-ko-7b-0404-test"
+run_name="gemma-ko-7b-0405-test"
 chat_template="gemma"
-lr=5e-6
+lr=1e-5
 
 
 python finetune_hf.py \
@@ -21,6 +21,7 @@ python finetune_hf.py \
     --model_id "$model" \
     --datasets "$datasets" \
     --epoch 3 \
+    --warmup_ratio 0.033 \
     --packing False \
     --max_length 1024 \
     --step_batch_size $batch_size \
