@@ -135,3 +135,11 @@ class GlaiveFunctionCallingV2Ko(ChatDataSource):
             })
         return item
     
+
+@datasources("heegyu/ko-openchat-0406")
+class GlaiveFunctionCallingV2Ko(ChatDataSource):
+    
+    def load_dataset(self, args: DatasetArguments, split: str) -> Dataset:
+        ds = load_dataset("heegyu/ko-openchat-0406", split=split, streaming=args.streaming)
+        return ds
+    
