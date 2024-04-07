@@ -44,7 +44,7 @@ class GemmaPrompter(BasePrompter, ABC):
             dialogs += f"{self.assistant_message_token}{assistant}{self.end_of_turn_token}"
 
         dialogs += f"{self.user_message_token}{prompt}{self.end_of_turn_token}"
-        dialogs += self.assistant_message_token
+        dialogs += self.assistant_message_token.strip()
         if prefix:
             dialogs += prefix
         return dialogs

@@ -108,6 +108,11 @@ flags.DEFINE_integer(
     default=-1,
     help="eos token id"
 )
+flags.DEFINE_bool(
+    "from_pt",
+    default=True,
+    help="load from pt weights"
+)
 
 
 def main(argv):
@@ -190,6 +195,7 @@ def main(argv):
         param_dtype=get_dtype(dtype=FLAGS.dtype),
         precision=jax.lax.Precision("fastest"),
         input_shape=(1, server_config.max_sequence_length),
+        from_pt=FLAGS.from_pt,
     )
 
     # server.gradio_inference().launch(
