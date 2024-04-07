@@ -1,7 +1,7 @@
 # ../../script/koopenchat/alpaca.sh
 wandb online
 
-batch_size="${1:-4}"
+batch_size="${1:-8}"
 
 echo "Batch size: $batch_size"
 
@@ -24,10 +24,10 @@ python finetune_hf.py \
     --warmup_steps 10000 \
     --max_scheduler_steps 50000 \
     --save_steps 100000 \
-    --packing \
+    --packing False \
     --streaming \
-    --max_length 2048 \
+    --max_length 1024 \
     --step_batch_size $batch_size \
-    --total_batch_size 128 \
+    --total_batch_size 32 \
     --chat_template $chat_template \
     --lr $lr

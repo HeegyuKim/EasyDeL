@@ -189,6 +189,7 @@ class DatasetLoader:
                 if ds is not None and len(ds) > args.limit:
                     ds = ds.select(range(args.limit))
             
+            required_fields = ["input_ids", "attention_mask", "labels"]
             if not args.streaming:
                 num_proc = max(1, min(len(ds) // 2000, NUM_PROC))
                 kwargs = dict()
@@ -196,7 +197,6 @@ class DatasetLoader:
                 kwargs["load_from_cache_file"] = args.load_from_cache_file
                 kwargs["keep_in_memory"] = args.keep_in_memory
 
-                required_fields = ["input_ids", "attention_mask", "labels"]
                 cols = set(ds.column_names) - set(required_fields)
                 ds = ds.map(
                     self.encode_item,
@@ -217,7 +217,7 @@ class DatasetLoader:
                         gen_kwargs={"dataset": ds}
                     )
                 else:
-                    ds = ds.with_transform(self.encode_item_batch)
+                    ds = ds.map(self.encode_item).select_columns(required_fields)
                 
             if ds is not None:
                 sources.append(ds)
