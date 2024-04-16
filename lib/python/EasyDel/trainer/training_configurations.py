@@ -480,7 +480,7 @@ applied as total batch_size (e.g total_batch_size = total_batch_size * gradient_
             self,
             steps: int | None = None
     ):
-        self.optimizer_kwargs["steps"] = steps or self.optimizer_kwargs["steps"]
+        self.optimizer_kwargs["steps"] = self.optimizer_kwargs["steps"] or steps
         return get_optimizer_and_scheduler(
             **self.optimizer_kwargs
         )
