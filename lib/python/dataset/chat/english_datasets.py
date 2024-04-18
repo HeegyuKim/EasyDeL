@@ -46,7 +46,7 @@ class UltraChat(ChatDataSource):
         if split != "train":
             return None
         ds = load_dataset("HuggingFaceH4/ultrachat_200k", split=f"{split}_sft", streaming=args.streaming)
-        ds = ds.rename_column("messages", "conversations")
+        ds = ds.rename_column("messages", "conversations").select_columns(["conversations"])
         return ds
 
 

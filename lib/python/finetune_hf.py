@@ -141,6 +141,11 @@ def main(run_name: str,
         pretrained_model_name_or_path,
         trust_remote_code=True
     )
+    if tokenizer.pad_token == None:
+        print("Pad token is none, replace it to eos token")
+        tokenizer.pad_token = tokenizer.eos_token
+
+
     data_args = DatasetArguments(
         dataset=datasets,
         limit=None,
@@ -192,9 +197,6 @@ def main(run_name: str,
         # 'param_dtype': dtype,
         'input_shape': (1, max_length)
     }
-
-    if tokenizer.pad_token == None:
-        tokenizer.pad_token = tokenizer.eos_token
 
     train_args = TrainArguments(
         model_class=model.__class__,
